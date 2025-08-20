@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Shan's Personal Memory Recall</title>
+        <style>
+            :root {
+                --bg: #071028;
+                --card: #0b1220;
+                --muted: #94a3b8;
+                --accent: #0ea5a4;
+                --glass: rgba(255, 255, 255, 0.03);
+                --modal-bg: rgba(2, 6, 23, 0.9);
+            }
+
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                font-family: Inter, Segoe UI, Roboto, Arial;
+                background: linear-gradient(180deg, #071028 0%, #07172b 100%);
+                color: #e6eef6
+            }
+
+            .wrap {
+                max-width: 1200px;
+                margin: 20px auto;
+                padding: 20px
+            }
+
+            header {
+                display: flex;
+                align-items: center;
+                gap: 12px
+            }
+
+            h1 {
+                margin: 0;
+                font-size: 20px
+            }
+
+            .card {
+                background: var(--card);
+                border-radius: 12px;
+                padding: 14px;
+                box-shadow: 0 6px 24px rgba(2, 6, 23, 0.6)
+            }
+
+            .filters {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 10px;
+                margin-top: 14px
+            }
+
+            .filters .col {
+                display: flex;
+                flex-direction: column
+            }
+
+            label {
+                font-size: 12px;
+                color: var(--muted);
+                margin-bottom: 6px
+            }
+
+            input[type=text],
+            input[type=datetime-local],
+            select {
+                padding: 8px;
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.04);
+                background: var(--glass);
+                color: inherit
+            }
+
+            .actions {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-top: 12px
+            }
+
+            button {
+                background: var(--accent);
+                border: none;
+                padding: 10px 14px;
+                border-radius: 10px;
+                color: #042024;
+                cursor: pointer;
+                font-weight: 600
+            }
+
+            button.ghost {
+                background: transparent;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                color: var(--muted)
+            }
+
+            .results {
+                margin-top: 18px
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse
+            }
+
+            th,
+            td {
+                padding: 10px 8px;
+                text-align: left;
+                border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+                font-size: 13px
+            }
+
+            th {
+                color: var(--muted);
+                font-weight: 600
+            }
+
+            tr:hover td {
+                background: rgba(255, 255, 255, 0.01)
+            }
+
+            .thumb {
+                width: 140px;
+                height: 80px;
+                object-fit: cover;
+                border-radius: 6px;
+                border: 1px solid rgba(255, 255, 255, 0.03);
+                cursor: pointer
+            }
+
+            .meta {
+                color: var(--muted);
+                font-size: 12px
+            }
+
+            .pager {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                justify-content: flex-end;
+                margin-top: 8px
+            }
+
+            .small {
+                font-size: 12px;
+                color: var(--muted)
+            }
+
+            .flex {
+                display: flex;
+                gap: 8px;
+                align-items: center
+            }
+
+            .export {
+                margin-left: auto
+            }
+
+            .timeline-card {
+                margin-top: 16px;
+                padding: 12px;
+                display: grid;
+                grid-template-columns: 1fr 360px;
+                gap: 12px
+            }
+
+            .timeline-controls {
+                display: flex;
+                flex-direction: column;
+                gap: 10px
+            }
+
+            .slider-row {
+                display: flex;
+                align-items: center;
+                gap: 10px
+            }
+
+            #timeline {
+                width: 100%
+            }
+
+            .preview-wrap {
+                background: rgba(255, 255, 255, 0.02);
+                padding: 10px;
+                border-radius: 10px;
+                text-align: center
+            }
+
+            .preview-wrap img {
+                max-width: 100%;
+                max-height: 420px;
+                border-radius: 8px;
+                cursor: pointer
+            }
+
+            /* Modal styles */
+            .modal {
+                position: fixed;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: var(--modal-bg);
+                z-index: 9999;
+            }
+
+            .modal.open {
+                display: flex;
+            }
+
+            .modal-content {
+                position: relative;
+                max-width: 94%;
+                max-height: 94%;
+                width: 1100px;
+                background: transparent;
+                border-radius: 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .modal-img {
+                max-width: 100%;
+                max-height: 78vh;
+                border-radius: 8px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            }
+
+            .modal-meta {
+                margin-top: 10px;
+                color: var(--muted);
+                font-size: 13px;
+                text-align: center
+            }
+
+            .modal-controls {
+                margin-top: 12px;
+                display: flex;
+                gap: 10px;
+                align-items: center
+            }
+
+            .modal-btn {
+                background: rgba(255, 255, 255, 0.06);
+                border: 0;
+                padding: 8px 12px;
+                border-radius: 8px;
+                color: var(--muted);
+                cursor: pointer
+            }
+
+            .nav-btn {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                background: rgba(0, 0, 0, 0.35);
+                border: none;
+                color: white;
+                font-size: 28px;
+                padding: 8px 12px;
+                border-radius: 8px;
+                cursor: pointer
+            }
+
+            #modalPrev {
+                left: 10px
+            }
+
+            #modalNext {
+                right: 10px
+            }
+
+            .modal-close {
+                position: absolute;
+                right: 8px;
+                top: 8px;
+                background: rgba(0, 0, 0, 0.45);
+                border: none;
+                color: white;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer
+            }
+
+            @media(max-width:980px) {
+                .filters {
+                    grid-template-columns: repeat(2, 1fr)
+                }
+
+                .timeline-card {
+                    grid-template-columns: 1fr
+                }
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <div class="wrap">
+            <header>
+                <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:12px">
+                    <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='4' fill='%230ea5a4'/><path d='M7 12h10M7 8h8M7 16h10' stroke='white' stroke-width='1.5' stroke-linecap='round'/></svg>"
+                        width="36" height="36" alt="logo" />
+                    <div>
+                        <h1>Recall — Search + Timeline</h1>
+                        <div class="small">Search & scrub — click any thumbnail to open the image viewer</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="card" style="margin-top:12px">
+                <div class="filters">
+                    <div class="col">
+                        <label for="win_title">Window title</label>
+                        <input id="win_title" type="text" placeholder="Excel, Chrome, VSCode..." />
+                    </div>
+                    <div class="col">
+                        <label for="win_app">App name (process)</label>
+                        <input id="win_app" type="text" placeholder="EXCEL.EXE, chrome.exe..." />
+                    </div>
+                    <div class="col">
+                        <label for="start">Start (date & time)</label>
+                        <input id="start" type="datetime-local" />
+                    </div>
+                    <div class="col">
+                        <label for="end">End (date & time)</label>
+                        <input id="end" type="datetime-local" />
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="searchBtn">Search</button>
+                    <button id="clearBtn" class="ghost">Clear</button>
+                    <div class="flex export">
+                        <button id="exportBtn" class="ghost">Export CSV</button>
+                        <div class="small" id="count">0 results</div>
+                    </div>
+                </div>
+
+                <div class="timeline-card" id="timelineCard" style="display:none">
+                    <div class="timeline-controls card">
+                        <div class="small">Timeline (scrub to scan). Slider shows chosen time; image shown is the latest
+                            captured ≤ chosen time.</div>
+                        <div class="slider-row">
+                            <input type="range" id="timeline" min="0" max="0" step="1" value="0">
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <button id="playBtn" class="ghost">Play</button>
+                            <button id="pauseBtn" class="ghost">Pause</button>
+                            <div class="small">Speed:</div>
+                            <select id="speedSel">
+                                <option value="1">1x</option>
+                                <option value="2">2x</option>
+                                <option value="4">4x</option>
+                            </select>
+                            <div style="margin-left:auto" class="small" id="timelineLabel">—</div>
+                        </div>
+                        <div class="small" id="timelineStats"></div>
+                    </div>
+
+                    <div class="preview-wrap card" id="previewCard">
+                        <div class="small" id="previewMeta">No image</div>
+                        <img id="previewImg" src="" alt="preview" />
+                        <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
+                            <button id="openFull" class="ghost">Open Full</button>
+                            <a id="downloadLink" class="ghost" href="#" download>Download</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="results card" id="resultsCard" style="display:block;margin-top:12px">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Preview</th>
+                                <th>Timestamp</th>
+                                <th>Session</th>
+                                <th>App</th>
+                                <th>Window title</th>
+                                <th>Path</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div class="pager">
+                        <div class="small" id="pageInfo"></div>
+                        <button id="prevPage" class="ghost">Prev</button>
+                        <button id="nextPage">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal / Image Viewer -->
+        <div id="imageModal" class="modal" aria-hidden="true">
+            <button id="modalPrev" class="nav-btn" title="Previous">❮</button>
+            <div class="modal-content card" role="dialog" aria-modal="true">
+                <button id="modalClose" class="modal-close" title="Close">✕</button>
+                <img id="modalImg" class="modal-img" src="" alt="Full image" />
+                <div class="modal-meta" id="modalMeta">—</div>
+                <div class="modal-controls">
+                    <a id="modalDownload" class="modal-btn" href="#" download>Download</a>
+                    <button id="modalOpenNew" class="modal-btn">Open in new tab</button>
+                </div>
+            </div>
+            <button id="modalNext" class="nav-btn" title="Next">❯</button>
+        </div>
+
+        <script>
+            // API endpoints (server.py must expose these)
+            const API_SEARCH = '/api/search';
+            const API_TIMELINE = '/api/timeline';
+            const API_OPEN = '/api/open';
+            const API_THUMB = '/api/thumbnail';
+            let page = 1, pageSize = 20, total = 0;
+            let timelineData = [];            // timeline items (sorted by ts_ms)
+            let lastPageRows = [];            // current page rows (for search result viewer navigation)
+            let playInterval = null;
+
+            // Modal viewer state
+            let viewerList = [];              // array of records {path, timestamp, win_app, win_title}
+            let viewerIndex = 0;
+
+            function qs(id) { return document.getElementById(id) }
+            function fmtLocal(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch (e) { return iso } }
+
+            // ---------- SEARCH + RESULTS ----------
+            async function doSearch(reset = true) {
+                if (reset) { page = 1 }
+                const params = new URLSearchParams();
+                const title = qs('win_title').value.trim();
+                const app = qs('win_app').value.trim();
+                if (title) params.set('win_title', title);
+                if (app) params.set('win_app', app);
+                const start = qs('start').value;
+                const end = qs('end').value;
+                if (start) params.set('start', start);
+                if (end) params.set('end', end);
+                params.set('page', page);
+                params.set('page_size', pageSize);
+
+                qs('searchBtn').disabled = true;
+                try {
+                    const res = await fetch(API_SEARCH + '?' + params.toString());
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+                    total = data.total || 0;
+                    lastPageRows = data.rows || [];
+
+                    // sort by timestamp descending
+                    const sortedRows = [...lastPageRows].sort((a, b) => {
+                        const ta = a.ts_ms;
+                        const tb = b.ts_ms;
+                        return tb - ta;
+                    });
+
+                    console.log(sortedRows)
+                    renderResults(sortedRows);
+                    qs('count').innerText = `${total} results`;
+                    qs('pageInfo').innerText = `Page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`;
+
+                    // load timeline for current filters (no pagination)
+                    await loadTimeline();
+
+                } catch (err) {
+                    alert('Search failed: ' + err.message);
+                } finally { qs('searchBtn').disabled = false }
+            }
+
+            function renderResults(rows) {
+                const tbody = document.querySelector('#resultsTable tbody');
+                tbody.innerHTML = '';
+                rows.forEach((r, idx) => {
+                    const tr = document.createElement('tr');
+                    const thumbTd = document.createElement('td');
+                    const img = document.createElement('img');
+                    img.className = 'thumb';
+                    img.src = API_THUMB + '?path=' + encodeURIComponent(r.path);
+                    img.alt = 'preview';
+                    // click opens modal — viewer navigates within current page rows
+                    img.addEventListener('click', () => openModalFromList(rows, idx));
+                    thumbTd.appendChild(img);
+
+                    const ts = document.createElement('td'); ts.innerText = r.timestamp ? fmtLocal(r.timestamp) : r.day || '';
+                    const sess = document.createElement('td'); sess.innerText = r.session || '';
+                    const app = document.createElement('td'); app.innerText = r.win_app || '';
+                    const title = document.createElement('td'); title.innerText = r.win_title || '';
+                    const path = document.createElement('td'); path.innerText = r.path || ''; path.style.maxWidth = '220px'; path.style.overflow = 'hidden'; path.style.textOverflow = 'ellipsis';
+                    const act = document.createElement('td');
+                    const openBtn = document.createElement('button'); openBtn.innerText = 'Open'; openBtn.className = 'ghost';
+                    openBtn.onclick = () => { window.open(API_OPEN + '?path=' + encodeURIComponent(r.path), '_blank') };
+                    act.appendChild(openBtn);
+
+                    tr.appendChild(thumbTd);
+                    tr.appendChild(ts);
+                    tr.appendChild(sess);
+                    tr.appendChild(app);
+                    tr.appendChild(title);
+                    tr.appendChild(path);
+                    tr.appendChild(act);
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // ---------- TIMELINE UI + LOGIC ----------
+            async function loadTimeline() {
+                const params = new URLSearchParams();
+                const title = qs('win_title').value.trim();
+                const app = qs('win_app').value.trim();
+                if (title) params.set('win_title', title);
+                if (app) params.set('win_app', app);
+                const start = qs('start').value;
+                const end = qs('end').value;
+                if (start) params.set('start', start);
+                if (end) params.set('end', end);
+
+                try {
+                    const res = await fetch(API_TIMELINE + '?' + params.toString());
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+                    timelineData = data.items || [];
+
+                    if (timelineData.length === 0) {
+                        qs('timelineCard').style.display = 'none';
+                        return;
+                    }
+
+                    qs('timelineCard').style.display = 'grid';
+
+                    // slider uses epoch ms range
+                    const minMs = timelineData[0].ts_ms;
+                    const maxMs = timelineData[timelineData.length - 1].ts_ms;
+                    const slider = qs('timeline');
+                    slider.min = String(minMs);
+                    slider.max = String(maxMs);
+                    slider.step = '1000'; // 1s resolution
+                    slider.value = String(minMs);
+
+                    qs('timelineStats').innerText = `Points: ${timelineData.length} | Range: ${fmtLocal(timelineData[0].timestamp)} → ${fmtLocal(timelineData[timelineData.length - 1].timestamp)}`;
+
+                    updatePreviewByEpoch(minMs);
+
+                } catch (err) {
+                    console.error('Timeline load failed', err);
+                }
+            }
+
+            // binary search for latest index with ts_ms <= t
+            function latestIndexBefore(t) {
+                let lo = 0, hi = timelineData.length - 1, ans = -1;
+                t = Number(t);
+                while (lo <= hi) {
+                    const mid = Math.floor((lo + hi) / 2);
+                    if (timelineData[mid].ts_ms <= t) { ans = mid; lo = mid + 1; }
+                    else { hi = mid - 1; }
+                }
+                return ans;
+            }
+
+            function updatePreviewByEpoch(epochMs) {
+                if (!timelineData || timelineData.length === 0) return;
+                const idx = latestIndexBefore(Number(epochMs));
+                if (idx === -1) {
+                    qs('previewMeta').innerText = 'No image available before selected time';
+                    qs('previewImg').src = '';
+                    qs('openFull').onclick = () => { };
+                    qs('downloadLink').href = '#';
+                    return;
+                }
+                const rec = timelineData[idx];
+                qs('previewMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
+                qs('previewImg').src = API_THUMB + '?path=' + encodeURIComponent(rec.path);
+                // clicking the preview opens modal with the timeline list and position idx
+                qs('previewImg').onclick = () => openModalFromList(timelineData, idx);
+                qs('openFull').onclick = () => { window.open(API_OPEN + '?path=' + encodeURIComponent(rec.path), '_blank') };
+                qs('downloadLink').href = API_OPEN + '?path=' + encodeURIComponent(rec.path);
+                qs('timelineLabel').innerText = fmtLocal(new Date(Number(epochMs))).replace(',', '');
+            }
+
+            qs('timeline').addEventListener('input', (e) => {
+                updatePreviewByEpoch(e.target.value);
+            });
+
+            // play/pause
+            qs('playBtn').addEventListener('click', () => {
+                if (playInterval) clearInterval(playInterval);
+                const speed = Number(qs('speedSel').value) || 1;
+                playInterval = setInterval(() => {
+                    const s = qs('timeline');
+                    const step = 1000 * speed; // advance seconds * speed
+                    let next = Number(s.value) + step;
+                    if (next > Number(s.max)) { next = Number(s.max); clearInterval(playInterval); playInterval = null; }
+                    s.value = String(next);
+                    updatePreviewByEpoch(next);
+                }, 200);
+            });
+            qs('pauseBtn').addEventListener('click', () => { if (playInterval) clearInterval(playInterval); playInterval = null; });
+
+            // ---------- Modal viewer ----------
+            function openModalFromList(list, index) {
+                if (!list || list.length === 0) return;
+                viewerList = list;
+                viewerIndex = index;
+                showModalRecord(viewerList[viewerIndex]);
+                qs('imageModal').classList.add('open'); qs('imageModal').setAttribute('aria-hidden', 'false');
+            }
+
+            function showModalRecord(rec) {
+                qs('modalImg').src = API_OPEN + '?path=' + encodeURIComponent(rec.path);
+                qs('modalMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
+                qs('modalDownload').href = API_OPEN + '?path=' + encodeURIComponent(rec.path);
+                qs('modalOpenNew').onclick = () => window.open(API_OPEN + '?path=' + encodeURIComponent(rec.path), '_blank');
+            }
+
+            function closeModal() { qs('imageModal').classList.remove('open'); qs('imageModal').setAttribute('aria-hidden', 'true'); viewerList = []; viewerIndex = 0; }
+
+            function showPrev() {
+                if (!viewerList || viewerList.length === 0) return;
+                if (viewerIndex > 0) { viewerIndex--; showModalRecord(viewerList[viewerIndex]); }
+            }
+            function showNext() {
+                if (!viewerList || viewerList.length === 0) return;
+                if (viewerIndex < viewerList.length - 1) { viewerIndex++; showModalRecord(viewerList[viewerIndex]); }
+            }
+
+            qs('modalClose').addEventListener('click', closeModal);
+            qs('modalPrev').addEventListener('click', showPrev);
+            qs('modalNext').addEventListener('click', showNext);
+            // keyboard navigation
+            window.addEventListener('keydown', (e) => {
+                if (!qs('imageModal').classList.contains('open')) return;
+                if (e.key === 'Escape') { closeModal(); }
+                else if (e.key === 'ArrowLeft') { showPrev(); }
+                else if (e.key === 'ArrowRight') { showNext(); }
+            });
+
+            // close modal when clicking outside content
+            qs('imageModal').addEventListener('click', (ev) => {
+                if (ev.target.id === 'imageModal') closeModal();
+            });
+
+            // ---------- EXPORT ----------
+            qs('exportBtn').addEventListener('click', async () => {
+                const params = new URLSearchParams();
+                const title = qs('win_title').value.trim();
+                const app = qs('win_app').value.trim();
+                if (title) params.set('win_title', title);
+                if (app) params.set('win_app', app);
+                if (qs('start').value) params.set('start', qs('start').value);
+                if (qs('end').value) params.set('end', qs('end').value);
+                const res = await fetch('/api/export?' + params.toString());
+                if (!res.ok) { alert('Export failed'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'recall-export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+            });
+
+            // pagination & search bindings
+            qs('searchBtn').addEventListener('click', () => doSearch(true));
+            qs('win_title').addEventListener('change', () => doSearch(true));
+            qs('win_app').addEventListener('change', () => doSearch(true));
+            qs('start').addEventListener('change', () => doSearch(true));
+            qs('end').addEventListener('change', () => doSearch(true));
+            qs('clearBtn').addEventListener('click', () => { qs('win_title').value = ''; qs('win_app').value = ''; qs('start').value = ''; qs('end').value = ''; doSearch(true); });
+            qs('prevPage').addEventListener('click', () => { if (page > 1) { page--; doSearch(false) } });
+            qs('nextPage').addEventListener('click', () => { if (page * pageSize < total) { page++; doSearch(false) } });
+
+            // initial load
+            doSearch(true);
+        </script>
+    </body>
+
+</html>

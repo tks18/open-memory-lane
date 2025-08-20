@@ -1,0 +1,28 @@
+# =========================
+# CONFIG FILE (config.yaml)
+# =========================
+
+paths:
+  base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall"
+  images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Images"
+  timelapse_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse"
+  detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Detailed"
+  summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Summary"
+  db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\recall.db"
+  log_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\recall.log"
+
+session:
+  minutes: 15            # length of each chunk
+  idle_threshold: 60     # seconds of idle to allow video processing
+  capture_interval: 0.5  # seconds between screenshots
+
+video:
+  webp_quality: 75       # 0-100 lossy quality
+  ffmpeg: "ffmpeg"       # rely on PATH. If needed, set absolute path.
+  ssim_threshold: 0.95   # lower → more sensitive, higher → stricter
+  fps: 3                 # session video FPS
+  summary_video_fps: 10  # summary video FPS
+
+client:
+  port: 5000
+  timeline_limit: 5000
