@@ -1,0 +1,2 @@
+call "C:\Tools\Automation Scripts\personal-memory-recorder-v2\.venv\Scripts\activate.bat"
+"C:\Tools\Automation Scripts\personal-memory-recorder-v2\.venv\Scripts\python.exe" "C:\Tools\Automation Scripts\personal-memory-recorder-v2\start_app.py"

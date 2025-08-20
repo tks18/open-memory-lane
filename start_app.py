@@ -22,7 +22,7 @@ client_path = os.path.join(base_dir, "client.py")
 def run_hidden(script_path, log_path):
     creationflags = subprocess.CREATE_NO_WINDOW
     subprocess.Popen([venv_python, script_path],
-                     stdout=open(log_path, "w"),
+                     stdout=open(log_path, "a"),
                      stderr=subprocess.STDOUT,
                      creationflags=creationflags)
 

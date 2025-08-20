@@ -357,7 +357,7 @@ def run_flask():
 
 
 def create_tray_image():
-    img = Image.open(os.path.join("__assets__", "icon-tray.png"))
+    img = Image.open(os.path.join("__assets__", "recall_logo_client.png"))
     img = img.convert("RGBA")
     return img
 

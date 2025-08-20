@@ -569,7 +569,7 @@ class RecallWorker(threading.Thread):
 
 
 def create_tray_image():
-    img = Image.open(os.path.join("__assets__", "icon-tray.png"))
+    img = Image.open(os.path.join("__assets__", "recall_logo.png"))
     img = img.convert("RGBA")
     return img
 

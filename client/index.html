@@ -149,7 +149,8 @@
 
             .small {
                 font-size: 12px;
-                color: var(--muted)
+                color: var(--muted);
+                padding: 5px;
             }
 
             .flex {
@@ -166,8 +167,9 @@
                 margin-top: 16px;
                 padding: 12px;
                 display: grid;
-                grid-template-columns: 1fr 360px;
-                gap: 12px
+                grid-template-columns: 1fr;
+                /* stacked layout */
+                gap: 12px;
             }
 
             .timeline-controls {
@@ -190,14 +192,23 @@
                 background: rgba(255, 255, 255, 0.02);
                 padding: 10px;
                 border-radius: 10px;
-                text-align: center
+
+                /* Center content */
+                display: flex;
+                flex-direction: column;
+                /* stack meta + image + buttons vertically */
+                align-items: center;
+                /* horizontally center */
+                text-align: center;
             }
 
             .preview-wrap img {
                 max-width: 100%;
-                max-height: 420px;
+                max-height: 600px;
+                /* bigger preview */
                 border-radius: 8px;
-                cursor: pointer
+                cursor: pointer;
+                object-fit: contain;
             }
 
             /* Modal styles */
@@ -345,14 +356,23 @@
                     </div>
                 </div>
 
-                <div class="timeline-card" id="timelineCard" style="display:none">
-                    <div class="timeline-controls card">
+                <div class="timeline-card" id="timelineCard" style="display:none; grid-template-columns:1fr;">
+                    <div class="preview-wrap card" id="previewCard">
+                        <div class="small" id="previewMeta">No image</div>
+                        <img id="previewImg" src="" alt="preview" />
+                        <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
+                            <button id="openFull" class="ghost">Open Full</button>
+                            <button id="downloadLink" class="modal-btn" href="#" download>Download</button>
+                        </div>
+                    </div>
+
+                    <div class="timeline-controls card" style="margin-top:12px;">
                         <div class="small">Timeline (scrub to scan). Slider shows chosen time; image shown is the latest
                             captured ≤ chosen time.</div>
                         <div class="slider-row">
                             <input type="range" id="timeline" min="0" max="0" step="1" value="0">
                         </div>
-                        <div style="display:flex;gap:8px;align-items:center">
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
                             <button id="playBtn" class="ghost">Play</button>
                             <button id="pauseBtn" class="ghost">Pause</button>
                             <div class="small">Speed:</div>
@@ -363,16 +383,7 @@
                             </select>
                             <div style="margin-left:auto" class="small" id="timelineLabel">—</div>
                         </div>
-                        <div class="small" id="timelineStats"></div>
-                    </div>
-
-                    <div class="preview-wrap card" id="previewCard">
-                        <div class="small" id="previewMeta">No image</div>
-                        <img id="previewImg" src="" alt="preview" />
-                        <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
-                            <button id="openFull" class="ghost">Open Full</button>
-                            <a id="downloadLink" class="ghost" href="#" download>Download</a>
-                        </div>
+                        <div class="small" id="timelineStats" style="margin-top:4px;"></div>
                     </div>
                 </div>
 
