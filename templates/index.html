@@ -4,7 +4,8 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <title>Shan's Personal Memory Recall</title>
+        <title>Shan's Memory Lane</title>
+        <link rel="icon" type="image/png" href="static/logo.png">
         <style>
             :root {
                 --bg: #071028;
@@ -318,10 +319,9 @@
         <div class="wrap">
             <header>
                 <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:12px">
-                    <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='4' fill='%230ea5a4'/><path d='M7 12h10M7 8h8M7 16h10' stroke='white' stroke-width='1.5' stroke-linecap='round'/></svg>"
-                        width="36" height="36" alt="logo" />
+                    <img src="static/logo.png" width="48" height="48" alt="logo" />
                     <div>
-                        <h1>Recall — Search + Timeline</h1>
+                        <h1>Shan's Memory Lane</h1>
                         <div class="small">Search & scrub — click any thumbnail to open the image viewer</div>
                     </div>
                 </div>
@@ -474,7 +474,6 @@
                         return tb - ta;
                     });
 
-                    console.log(sortedRows)
                     renderResults(sortedRows);
                     qs('count').innerText = `${total} results`;
                     qs('pageInfo').innerText = `Page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`;

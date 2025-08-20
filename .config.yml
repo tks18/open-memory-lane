@@ -3,13 +3,13 @@
 # =========================
 
 paths:
-  base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall"
-  images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Images"
-  timelapse_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse"
-  detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Detailed"
-  summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Summary"
-  db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\recall.db"
-  log_folder: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall"
+  base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
+  images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
+  timelapse_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse"
+  detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
+  summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
+  db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\recall.db"
+  log_folder: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
 
 session:
   minutes: 15            # length of each chunk

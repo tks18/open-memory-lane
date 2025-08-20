@@ -15,7 +15,7 @@ import yaml
 from flask_cors import CORS
 from flask import Flask, request, jsonify, send_file, abort, make_response, send_from_directory
 
-APP = Flask(__name__, static_folder='.')
+APP = Flask(__name__, static_folder='./static/')
 CORS(APP)
 
 
@@ -141,7 +141,7 @@ def downsample(items, limit):
 
 @APP.route('/')
 def index():
-    return send_from_directory('client', 'index.html')
+    return send_from_directory("templates", "index.html")
 
 
 @APP.route('/api/search')
