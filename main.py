@@ -34,7 +34,8 @@ TIMELAPSE_DIR = Path(cfg["paths"]["timelapse_dir"])
 DETAILED_DIR = Path(cfg["paths"]["detailed_dir"])
 SUMMARY_DIR = Path(cfg["paths"]["summary_dir"])
 DB_PATH = Path(cfg["paths"]["db_path"])
-LOG_PATH = Path(cfg["paths"]["log_path"])
+LOG_FOLDER = Path(cfg["paths"]["log_folder"])
+LOG_PATH = os.path.join(LOG_FOLDER, "recorder.log")
 
 # length of each chunk
 SESSION_MINUTES = int(cfg["session"]["minutes"])

@@ -9,7 +9,7 @@ paths:
   detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Detailed"
   summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\Timelapse\\Summary"
   db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\recall.db"
-  log_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall\\recall.log"
+  log_folder: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\shan-personal-recall"
 
 session:
   minutes: 15            # length of each chunk
