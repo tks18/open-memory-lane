@@ -38,11 +38,11 @@ DB_PATH = Path(cfg["paths"]["db_path"])
 LOG_FOLDER = Path(cfg["paths"]["log_folder"])
 LOG_PATH = os.path.join(LOG_FOLDER, "recorder.log")
 
-# onedrive backup paths
-ONEDRIVE_BASE_DIR = Path(cfg["paths"]["onedrive_base_dir"])
-ONEDRIVE_IMAGES_DIR = Path(cfg["paths"]["onedrive_images_dir"])
-ONEDRIVE_DETAILED_DIR = Path(cfg["paths"]["onedrive_detailed_dir"])
-ONEDRIVE_SUMMARY_DIR = Path(cfg["paths"]["onedrive_summary_dir"])
+# backup paths
+BACKUP_BASE_DIR = Path(cfg["paths"]["backup_base_dir"])
+BACKUP_IMAGES_DIR = Path(cfg["paths"]["backup_images_dir"])
+BACKUP_DETAILED_DIR = Path(cfg["paths"]["backup_detailed_dir"])
+BACKUP_SUMMARY_DIR = Path(cfg["paths"]["backup_summary_dir"])
 
 # Backup Config
 LOCAL_RETENTION_DAYS = int(cfg["local_retention"]["days"])
@@ -72,7 +72,7 @@ SUMMARY_VIDEO_FPS = int(cfg["video"]["summary_video_fps"])
 # LOGGING
 # =========================
 os.makedirs(BASE_DIR, exist_ok=True)
-os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
+os.makedirs(BACKUP_BASE_DIR, exist_ok=True)
 
 logging.basicConfig(
     filename=LOG_PATH,
@@ -275,7 +275,7 @@ def db_fetchall(query, params=()):
 
 def add_image(day: str, session: str, local_path: str, win_title, win_app, backup_path: str = None):
     """
-    Store both local and onedrive paths into DB. For backwards compatibility,
+    Store both local and backup paths into DB. For backwards compatibility,
     'path' will be set to local_path.
     """
     query = """INSERT INTO images(day, session, local_path, backup_path, win_title, win_app)
@@ -565,25 +565,25 @@ def is_today(day: str) -> bool:
     return day == datetime.date.today().isoformat()
 
 
-def to_onedrive_equivalent(local_path: str, local_root: Path, onedrive_root: Path) -> str:
+def to_backup_equivalent(local_path: str, local_root: Path, backup_root: Path) -> str:
     """
     Convert a local absolute path to the equivalent path under the OneDrive root.
     This only computes the path string; it does NOT move files.
     """
     try:
         local_root = Path(local_root).resolve()
-        onedrive_root = Path(onedrive_root).resolve()
+        backup_root = Path(backup_root).resolve()
         p = Path(local_path).resolve()
         rel = p.relative_to(local_root)  # may raise
-        dst = onedrive_root.joinpath(rel)
+        dst = backup_root.joinpath(rel)
         return str(dst).replace("\\", "/")
     except Exception:
         # fallback: create a day-based path if relative fails
-        return str(onedrive_root.joinpath(os.path.basename(local_path))).replace("\\", "/")
+        return str(backup_root.joinpath(os.path.basename(local_path))).replace("\\", "/")
 
 
 def ensure_dirs():
-    for d in [IMAGES_DIR, DETAILED_DIR, SUMMARY_DIR, ONEDRIVE_IMAGES_DIR, ONEDRIVE_DETAILED_DIR, ONEDRIVE_SUMMARY_DIR]:
+    for d in [IMAGES_DIR, DETAILED_DIR, SUMMARY_DIR, BACKUP_IMAGES_DIR, BACKUP_DETAILED_DIR, BACKUP_SUMMARY_DIR]:
         os.makedirs(d, exist_ok=True)
 
 
@@ -645,12 +645,12 @@ def capture_screenshot(last_img: Image.Image, save_dir: str, day: str, session: 
             path = os.path.join(save_dir, fname)
             pil_img.save(path, "WEBP", quality=WEBP_QUALITY)
             try:
-                onedrive_equiv = to_onedrive_equivalent(
-                    path, IMAGES_DIR, ONEDRIVE_IMAGES_DIR)
+                backup_equiv = to_backup_equivalent(
+                    path, IMAGES_DIR, BACKUP_IMAGES_DIR)
             except Exception:
-                onedrive_equiv = ""
+                backup_equiv = ""
             add_image(day, session, path, window_title,
-                      app_name, onedrive_equiv)
+                      app_name, backup_equiv)
             return pil_img
 
         return last_img
@@ -754,17 +754,17 @@ def ensure_remote_exists_for_day(local_day: str, local_root: str, remote_root: s
         return False
 
 
-def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 60 * 60):
+def backup_worker(stop_event: threading.Event, interval_seconds: int = 3 * 60 * 60):
     """
     Periodically moves completed items from TEMP → OneDrive:
       - images: .../images/YYYY-MM-DD/(session) when session has no 'session.lock'
       - detailed: .../timelapse/detailed/YYYY-MM-DD when day < today
       - summary: .../timelapse/summary/YYYY-MM/ files for days < today
     """
-    os.makedirs(ONEDRIVE_BASE_DIR, exist_ok=True)
-    os.makedirs(ONEDRIVE_IMAGES_DIR, exist_ok=True)
-    os.makedirs(ONEDRIVE_DETAILED_DIR, exist_ok=True)
-    os.makedirs(ONEDRIVE_SUMMARY_DIR, exist_ok=True)
+    os.makedirs(BACKUP_BASE_DIR, exist_ok=True)
+    os.makedirs(BACKUP_IMAGES_DIR, exist_ok=True)
+    os.makedirs(BACKUP_DETAILED_DIR, exist_ok=True)
+    os.makedirs(BACKUP_SUMMARY_DIR, exist_ok=True)
 
     while not stop_event.is_set():
         try:
@@ -777,7 +777,7 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                 if not os.path.isdir(src_day):
                     continue
 
-                dst_day = os.path.join(ONEDRIVE_IMAGES_DIR, day)
+                dst_day = os.path.join(BACKUP_IMAGES_DIR, day)
                 os.makedirs(dst_day, exist_ok=True)
 
                 # Copy session folders' contents (safe copy)
@@ -813,7 +813,7 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                     continue
                 if day >= today:
                     continue
-                dst_day_dir = os.path.join(ONEDRIVE_DETAILED_DIR, day)
+                dst_day_dir = os.path.join(BACKUP_DETAILED_DIR, day)
                 # if destination doesn't exist, copy tree; otherwise copy missing files
                 if not os.path.isdir(dst_day_dir):
                     try:
@@ -841,12 +841,12 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                 src_month_dir = os.path.join(SUMMARY_DIR, month)
                 if not os.path.isdir(src_month_dir):
                     continue
-                dst_month_dir = os.path.join(ONEDRIVE_SUMMARY_DIR, month)
+                dst_month_dir = os.path.join(BACKUP_SUMMARY_DIR, month)
                 os.makedirs(dst_month_dir, exist_ok=True)
 
                 if month < current_month:
                     # copy entire past month folder
-                    if not os.path.isdir(os.path.join(ONEDRIVE_SUMMARY_DIR, month)):
+                    if not os.path.isdir(os.path.join(BACKUP_SUMMARY_DIR, month)):
                         try:
                             shutil.copytree(
                                 src_month_dir, dst_month_dir, copy_function=shutil.copy2)
@@ -894,7 +894,7 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                             continue
                         if day_date < cutoff and os.path.isdir(day_path):
                             # confirm remote copy exists for that day before deleting
-                            remote_day = os.path.join(ONEDRIVE_IMAGES_DIR, day)
+                            remote_day = os.path.join(BACKUP_IMAGES_DIR, day)
                             if os.path.isdir(remote_day) and os.listdir(remote_day):
                                 shutil.rmtree(day_path, ignore_errors=True)
 
@@ -907,9 +907,9 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                         except Exception:
                             continue
                         if day_date < cutoff and os.path.isdir(day_path):
-                            onedrive_day = os.path.join(
-                                ONEDRIVE_DETAILED_DIR, day)
-                            if os.path.isdir(onedrive_day) and os.listdir(onedrive_day):
+                            backup_day = os.path.join(
+                                BACKUP_DETAILED_DIR, day)
+                            if os.path.isdir(backup_day) and os.listdir(backup_day):
                                 shutil.rmtree(day_path, ignore_errors=True)
 
                 # SUMMARY: remove local summary files older than cutoff only if remote copy exists
@@ -919,7 +919,7 @@ def backup_to_onedrive(stop_event: threading.Event, interval_seconds: int = 3 * 
                         month_path = os.path.join(SUMMARY_DIR, month)
                         if month < cutoff_month:
                             remote_month = os.path.join(
-                                ONEDRIVE_SUMMARY_DIR, month)
+                                BACKUP_SUMMARY_DIR, month)
                             # only prune if remote month exists
                             if os.path.isdir(remote_month) and os.listdir(remote_month):
                                 shutil.rmtree(month_path, ignore_errors=True)
@@ -974,12 +974,12 @@ class RecallWorker(threading.Thread):
                 os.makedirs(summary_dir, exist_ok=True)
                 summary_file = os.path.join(
                     summary_dir, f"{current_day}_summary.mp4")
-                onedrive_summary = to_onedrive_equivalent(
-                    summary_dir, SUMMARY_DIR, ONEDRIVE_SUMMARY_DIR)
+                backup_summary = to_backup_equivalent(
+                    summary_dir, SUMMARY_DIR, BACKUP_SUMMARY_DIR)
                 if not os.path.exists(summary_file):
                     if concat_daily_videos(current_day, summary_file):
                         mark_summary(current_day, summary_file,
-                                     onedrive_summary)
+                                     backup_summary)
                 current_day = today
                 day_images_dir = os.path.join(IMAGES_DIR, current_day)
                 os.makedirs(day_images_dir, exist_ok=True)
@@ -995,11 +995,11 @@ class RecallWorker(threading.Thread):
                 out_file = os.path.join(
                     day_dir, f"{current_day}_{session_label}.mp4")
                 if not os.path.exists(out_file):
-                    onedrive_out = to_onedrive_equivalent(
-                        out_file, DETAILED_DIR, ONEDRIVE_DETAILED_DIR)
+                    backup_out = to_backup_equivalent(
+                        out_file, DETAILED_DIR, BACKUP_DETAILED_DIR)
                     if make_video_from_folder(session_dir, out_file):
                         mark_video(current_day, session_label,
-                                   out_file, onedrive_out)
+                                   out_file, backup_out)
 
                 remove_session_lock(session_dir)
 
@@ -1032,12 +1032,12 @@ class RecallWorker(threading.Thread):
             day_dir = get_detailed_day_dir(day)
             os.makedirs(day_dir, exist_ok=True)
             out_file = os.path.join(day_dir, f"{day}_{session}.mp4")
-            onedrive_out = to_onedrive_equivalent(
-                out_file, DETAILED_DIR, ONEDRIVE_DETAILED_DIR)
+            backup_out = to_backup_equivalent(
+                out_file, DETAILED_DIR, BACKUP_DETAILED_DIR)
             logger.info(
                 "[BACKLOG] Creating detailed video for %s %s", day, session)
             if make_video_from_folder(folder, out_file):
-                mark_video(day, session, out_file, onedrive_out)
+                mark_video(day, session, out_file, backup_out)
 
         for day in get_pending_summary_days():
             if is_today(day):
@@ -1046,11 +1046,11 @@ class RecallWorker(threading.Thread):
             month_dir = get_summary_month_dir(day)
             os.makedirs(month_dir, exist_ok=True)
             out_file = os.path.join(month_dir, f"{day}_summary.mp4")
-            onedrive_summary = to_onedrive_equivalent(
-                out_file, SUMMARY_DIR, ONEDRIVE_SUMMARY_DIR)
+            backup_summary = to_backup_equivalent(
+                out_file, SUMMARY_DIR, BACKUP_SUMMARY_DIR)
             logger.info("[BACKLOG] Creating summary for %s", day)
             if concat_daily_videos(day, out_file):
-                mark_summary(day, out_file, onedrive_summary)
+                mark_summary(day, out_file, backup_summary)
 
 # =========================
 # Tray Icon
@@ -1088,7 +1088,7 @@ def run_tray_app():
     worker.start()
 
     backup_thread = threading.Thread(
-        target=backup_to_onedrive, args=(stop_event, 3 * 60 * 60), daemon=True
+        target=backup_worker, args=(stop_event, 3 * 60 * 60), daemon=True
     )
     backup_thread.start()
 

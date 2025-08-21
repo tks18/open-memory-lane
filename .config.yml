@@ -10,10 +10,10 @@ paths:
   summary_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse\\Summary"
   db_path: "C:\\Users\\sutk\\.analytics\\personal-recall\\recall.db"
   log_folder: "C:\\Users\\sutk\\.analytics\\personal-recall"
-  onedrive_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
-  onedrive_images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
-  onedrive_detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
-  onedrive_summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
+  backup_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
+  backup_images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
+  backup_detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
+  backup_summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
 
 session:
   lock_stale_minutes: 30  # minutes to wait before locking a session

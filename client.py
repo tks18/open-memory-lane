@@ -33,7 +33,7 @@ IMAGES_BASE = Path(cfg["paths"]["images_dir"])
 TIMELINE_LIMIT = cfg["client"]["timeline_limit"]
 PORT = cfg["client"]["port"]
 
-BACKUP_IMAGES_DIR = Path(cfg["paths"]["onedrive_images_dir"])
+BACKUP_IMAGES_DIR = Path(cfg["paths"]["backup_images_dir"])
 LOCAL_RETENTION_DAYS = int(cfg["local_retention"]["days"])
 
 # --- Helpers ---
