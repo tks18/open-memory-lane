@@ -14,7 +14,7 @@ paths:
 session:
   minutes: 15            # length of each chunk
   idle_threshold: 60     # seconds of idle to allow video processing
-  capture_interval: 0.5  # seconds between screenshots
+  capture_interval: 1.0  # seconds between screenshots
 
 video:
   webp_quality: 75       # 0-100 lossy quality

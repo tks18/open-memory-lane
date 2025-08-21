@@ -52,7 +52,7 @@ SSIM_THRESHOLD = float(cfg["video"]["ssim_threshold"])
 
 # Video FPS
 SESSION_VIDEO_FPS = int(cfg["video"]["fps"])
-SUMMARY_VIDEO_FPS = int(cfg["video"].get("summary_fps", SESSION_VIDEO_FPS))
+SUMMARY_VIDEO_FPS = int(cfg["video"]["summary_video_fps"])
 
 # =========================
 # LOGGING
@@ -505,6 +505,8 @@ class RecallWorker(threading.Thread):
 
         last_backlog_sweep = time.time()
 
+        self.process_backlog()
+
         logger.info("Recall worker started.")
         while not self.stop_event.is_set():
             today = datetime.date.today().isoformat()
@@ -524,12 +526,11 @@ class RecallWorker(threading.Thread):
             time.sleep(CAPTURE_INTERVAL)
 
             if time.time() - session_start_time >= SESSION_MINUTES * 60:
-                if get_idle_time_seconds() >= IDLE_THRESHOLD:
-                    out_file = os.path.join(
-                        DETAILED_DIR, f"{current_day}_{session_label}.mp4")
-                    if not os.path.exists(out_file):
-                        if make_video_from_folder(session_dir, out_file):
-                            mark_video(current_day, session_label, out_file)
+                out_file = os.path.join(
+                    DETAILED_DIR, f"{current_day}_{session_label}.mp4")
+                if not os.path.exists(out_file):
+                    if make_video_from_folder(session_dir, out_file):
+                        mark_video(current_day, session_label, out_file)
                 session_start_time = time.time()
                 session_label = new_session_labels(datetime.datetime.now())
                 session_dir = os.path.join(day_images_dir, session_label)
@@ -537,19 +538,22 @@ class RecallWorker(threading.Thread):
 
             if time.time() - last_backlog_sweep >= 5 * 60:
                 if get_idle_time_seconds() >= IDLE_THRESHOLD:
-                    self.process_backlog()
+                    self.process_backlog(current_session=(
+                        current_day, session_label))
                 last_backlog_sweep = time.time()
 
         logger.info("Recall worker stopping...")
 
-    def process_backlog(self):
+    def process_backlog(self, current_session=None):
         for day, session in get_pending_video_sessions():
+            if current_session and (day, session) == current_session:
+                continue
+
             folder = os.path.join(IMAGES_DIR, day, session)
             if not os.path.isdir(folder):
                 continue
+
             out_file = os.path.join(DETAILED_DIR, f"{day}_{session}.mp4")
-            if os.path.exists(out_file):
-                continue
             logger.info(
                 "[BACKLOG] Creating detailed video for %s %s", day, session)
             if make_video_from_folder(folder, out_file):
@@ -557,8 +561,6 @@ class RecallWorker(threading.Thread):
 
         for day in get_pending_summary_days():
             out_file = os.path.join(SUMMARY_DIR, f"{day}_summary.mp4")
-            if os.path.exists(out_file):
-                continue
             logger.info("[BACKLOG] Creating summary for %s", day)
             if concat_daily_videos(day, out_file):
                 mark_summary(day, out_file)
@@ -599,7 +601,7 @@ def run_tray_app():
     worker.start()
 
     menu = TrayMenu(
-        Item("Open Recall Folder", open_root),
+        Item("Open Memories", open_root),
         Item("Open Log", open_logs),
         Item("Exit", lambda icon, item: on_exit(icon, item, stop_event))
     )
