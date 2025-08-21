@@ -396,7 +396,8 @@
                                 <th>Session</th>
                                 <th>App</th>
                                 <th>Window title</th>
-                                <th>Path</th>
+                                <th>Local Path</th>
+                                <th>Backup Path</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -443,6 +444,20 @@
 
             function qs(id) { return document.getElementById(id) }
             function fmtLocal(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch (e) { return iso } }
+
+            // prefer local_path -> path
+            function resolveClientPath(rec) {
+                if (!rec) return '';
+                return rec.local_path || rec.backup_path || '';
+            }
+
+            // show short path in table cell but preserve full path as title
+            function shortPath(p, maxLen = 60) {
+                if (!p) return '';
+                if (p.length <= maxLen) return p;
+                // show trailing bits (filename + tail)
+                return '…' + p.slice(-maxLen);
+            }
 
             // ---------- SEARCH + RESULTS ----------
             async function doSearch(reset = true) {
@@ -491,11 +506,15 @@
                 tbody.innerHTML = '';
                 rows.forEach((r, idx) => {
                     const tr = document.createElement('tr');
+
+                    // Preview thumbnail
                     const thumbTd = document.createElement('td');
                     const img = document.createElement('img');
                     img.className = 'thumb';
-                    img.src = API_THUMB + '?path=' + encodeURIComponent(r.path);
+                    const resolvedPath = resolveClientPath(r);
+                    img.src = API_THUMB + '?path=' + encodeURIComponent(resolvedPath);
                     img.alt = 'preview';
+                    img.addEventListener('error', () => { img.src = ''; }); // hide broken thumb
                     // click opens modal — viewer navigates within current page rows
                     img.addEventListener('click', () => openModalFromList(rows, idx));
                     thumbTd.appendChild(img);
@@ -504,21 +523,47 @@
                     const sess = document.createElement('td'); sess.innerText = r.session || '';
                     const app = document.createElement('td'); app.innerText = r.win_app || '';
                     const title = document.createElement('td'); title.innerText = r.win_title || '';
-                    const path = document.createElement('td'); path.innerText = r.path || ''; path.style.maxWidth = '220px'; path.style.overflow = 'hidden'; path.style.textOverflow = 'ellipsis';
+
+                    // Local path cell
+                    const localCell = document.createElement('td');
+                    const localVal = r.local_path || '';
+                    localCell.innerText = shortPath(localVal);
+                    localCell.title = localVal;
+
+                    // Backup path cell
+                    const backupCell = document.createElement('td');
+                    const backupVal = r.backup_path || '';
+                    backupCell.innerText = shortPath(backupVal);
+                    backupCell.title = backupVal;
+
+                    // Actions
                     const act = document.createElement('td');
                     const openBtn = document.createElement('button'); openBtn.innerText = 'Open'; openBtn.className = 'ghost';
-                    openBtn.onclick = () => { window.open(API_OPEN + '?path=' + encodeURIComponent(r.path), '_blank') };
+                    openBtn.onclick = () => {
+                        const p = resolveClientPath(r);
+                        if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
+                        else alert('No file available to open.');
+                    };
+                    const dlBtn = document.createElement('button'); dlBtn.innerText = 'Download'; dlBtn.className = 'modal-btn';
+                    dlBtn.onclick = () => {
+                        const p = resolveClientPath(r);
+                        if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
+                        else alert('No file available to download.');
+                    };
                     act.appendChild(openBtn);
+                    act.appendChild(dlBtn);
 
                     tr.appendChild(thumbTd);
                     tr.appendChild(ts);
                     tr.appendChild(sess);
                     tr.appendChild(app);
                     tr.appendChild(title);
-                    tr.appendChild(path);
+                    tr.appendChild(localCell);
+                    tr.appendChild(backupCell);
                     tr.appendChild(act);
                     tbody.appendChild(tr);
                 });
+
             }
 
             // ---------- TIMELINE UI + LOGIC ----------
@@ -588,11 +633,11 @@
                 }
                 const rec = timelineData[idx];
                 qs('previewMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
-                qs('previewImg').src = API_THUMB + '?path=' + encodeURIComponent(rec.path);
-                // clicking the preview opens modal with the timeline list and position idx
+                const p = resolveClientPath(rec);
+                qs('previewImg').src = API_THUMB + '?path=' + encodeURIComponent(p);
                 qs('previewImg').onclick = () => openModalFromList(timelineData, idx);
-                qs('openFull').onclick = () => { window.open(API_OPEN + '?path=' + encodeURIComponent(rec.path), '_blank') };
-                qs('downloadLink').href = API_OPEN + '?path=' + encodeURIComponent(rec.path);
+                qs('openFull').onclick = () => { if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank'); };
+                qs('downloadLink').href = API_OPEN + '?path=' + encodeURIComponent(p);
                 qs('timelineLabel').innerText = fmtLocal(new Date(Number(epochMs))).replace(',', '');
             }
 
@@ -625,10 +670,11 @@
             }
 
             function showModalRecord(rec) {
-                qs('modalImg').src = API_OPEN + '?path=' + encodeURIComponent(rec.path);
+                const p = resolveClientPath(rec);
+                qs('modalImg').src = API_OPEN + '?path=' + encodeURIComponent(p);
                 qs('modalMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
-                qs('modalDownload').href = API_OPEN + '?path=' + encodeURIComponent(rec.path);
-                qs('modalOpenNew').onclick = () => window.open(API_OPEN + '?path=' + encodeURIComponent(rec.path), '_blank');
+                qs('modalDownload').href = API_OPEN + '?path=' + encodeURIComponent(p);
+                qs('modalOpenNew').onclick = () => window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
             }
 
             function closeModal() { qs('imageModal').classList.remove('open'); qs('imageModal').setAttribute('aria-hidden', 'true'); viewerList = []; viewerIndex = 0; }

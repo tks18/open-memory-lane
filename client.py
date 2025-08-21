@@ -12,6 +12,7 @@ from pathlib import Path
 import os
 import sqlite3
 import yaml
+import re
 from flask_cors import CORS
 from flask import Flask, request, jsonify, send_file, abort, make_response, send_from_directory
 
@@ -31,6 +32,9 @@ IMAGES_BASE = Path(cfg["paths"]["images_dir"])
 # max number of points returned; server will downsample if exceeded
 TIMELINE_LIMIT = cfg["client"]["timeline_limit"]
 PORT = cfg["client"]["port"]
+
+BACKUP_IMAGES_DIR = Path(cfg["paths"]["onedrive_images_dir"])
+LOCAL_RETENTION_DAYS = int(cfg["local_retention"]["days"])
 
 # --- Helpers ---
 
@@ -87,16 +91,34 @@ def safe_image_path(p):
 def fetch_image_rows(win_title=None, win_app=None):
     conn = db_conn()
     cur = conn.cursor()
-    q = "SELECT id, day, session, path, win_title, win_app FROM images WHERE 1=1"
-    params = []
-    if win_title:
-        q += " AND win_title LIKE ?"
-        params.append(f"%{win_title}%")
-    if win_app:
-        q += " AND win_app LIKE ?"
-        params.append(f"%{win_app}%")
-    q += " ORDER BY day DESC"
-    cur.execute(q, params)
+
+    # attempt to fetch columns including local_path, backup_path if present,
+    # fallback to older schema selecting minimal columns
+    try:
+        q = ("SELECT id, day, session, local_path, backup_path, win_title, win_app "
+             "FROM images WHERE 1=1")
+        params = []
+        if win_title:
+            q += " AND win_title LIKE ?"
+            params.append(f"%{win_title}%")
+        if win_app:
+            q += " AND win_app LIKE ?"
+            params.append(f"%{win_app}%")
+        q += " ORDER BY day DESC"
+        cur.execute(q, params)
+    except sqlite3.OperationalError:
+        # older schema fallback
+        q = "SELECT id, day, session, path, win_title, win_app FROM images WHERE 1=1"
+        params = []
+        if win_title:
+            q += " AND win_title LIKE ?"
+            params.append(f"%{win_title}%")
+        if win_app:
+            q += " AND win_app LIKE ?"
+            params.append(f"%{win_app}%")
+        q += " ORDER BY day DESC"
+        cur.execute(q, params)
+
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -106,8 +128,13 @@ def fetch_image_rows(win_title=None, win_app=None):
 
 def row_to_record(r):
     row = dict(r)
-    path = row.get('path')
-    ts = parse_timestamp_from_path(path)
+    # compatibility: prefer explicit local_path/backup_path if present
+    local_p = row.get("local_path") or ""
+    backup_p = row.get("backup_path") or ""
+
+    # parse timestamp from local path first, then fallback to filename or day/session
+    ts = parse_timestamp_from_path(local_p)
+
     if ts is None:
         try:
             day = row.get('day')
@@ -119,8 +146,11 @@ def row_to_record(r):
                     day) + datetime.timedelta(hours=hh, minutes=mm)
         except Exception:
             ts = None
+
     row['timestamp'] = ts.isoformat() if ts else None
     row['ts_ms'] = int(ts.timestamp() * 1000) if ts else None
+    row['local_path'] = local_p
+    row['backup_path'] = backup_p
     return row
 
 # Downsample list to roughly `limit` points by uniform sampling
@@ -135,6 +165,111 @@ def downsample(items, limit):
     if sampled[-1] != items[-1]:
         sampled.append(items[-1])
     return sampled
+
+
+# other path helpers
+
+# returns (local_candidate_str or None, backup_candidate_str or None)
+
+def _candidates_from_path_string(p):
+    """
+    Given a stored path or filename, return the likely local candidate and
+    the corresponding backup candidate (using configured roots).
+    """
+    try:
+        candidate = Path(p)
+        # absolute path: check directly for local; derive relative to IMAGES_BASE for backup
+        if candidate.is_absolute():
+            local_c = str(candidate) if candidate.exists() else None
+            try:
+                rel = candidate.relative_to(IMAGES_BASE.resolve())
+                backup_c = str(BACKUP_IMAGES_DIR.resolve() /
+                               rel) if BACKUP_IMAGES_DIR else None
+            except Exception:
+                # not under IMAGES_BASE — attempt to map by filename into backup root
+                backup_c = str(BACKUP_IMAGES_DIR.resolve() /
+                               candidate.name) if BACKUP_IMAGES_DIR else None
+            return local_c, backup_c
+        # relative path: treat as relative to IMAGES_BASE
+        local_cand = (IMAGES_BASE / p).resolve()
+        local_c = str(local_cand) if local_cand.exists() else None
+        # backup candidate preserves same relative structure
+        backup_cand = (BACKUP_IMAGES_DIR /
+                       p).resolve() if BACKUP_IMAGES_DIR else None
+        backup_c = str(
+            backup_cand) if backup_cand and backup_cand.exists() else None
+        return local_c, backup_c
+    except Exception:
+        return None, None
+
+
+def _day_from_timestamp_or_path(p):
+    # first attempt parsing timestamp using filename pattern
+    dt = parse_timestamp_from_path(p)
+    if dt:
+        return dt.date().isoformat()
+    # try extract YYYY-MM-DD segment from path
+    m = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", str(p))
+    if m:
+        return m.group(1)
+    return None
+
+
+def resolve_serving_path(record):
+    """
+    Decide which path to serve given a DB record (dict with local_path & backup_path).
+    Policy:
+      - If record day < (today - LOCAL_RETENTION_DAYS) prefer backup_path (if exists)
+      - Else prefer local_path if exists; fallback to backup_path; fallback to path
+    Returns absolute path string or None.
+    """
+    today = datetime.date.today()
+    cutoff = today - datetime.timedelta(days=LOCAL_RETENTION_DAYS)
+
+    # prefer explicit columns if present
+    local_p = record.get('local_path') or ""
+    backup_p = record.get('backup_path') or ""
+
+    # compute day
+    day = record.get('day') or _day_from_timestamp_or_path(
+        local_p) or _day_from_timestamp_or_path(backup_p)
+    try:
+        if day:
+            day_date = datetime.date.fromisoformat(day)
+        else:
+            day_date = None
+    except Exception:
+        day_date = None
+
+    # if older than cutoff, prefer backup path if available
+    if day_date and day_date < cutoff:
+        if backup_p:
+            # prefer absolute backup path if exists; otherwise attempt candidate mapping
+            if os.path.isabs(backup_p) and os.path.exists(backup_p):
+                return backup_p
+            # attempt candidate mapping from original relative path
+            _, backup_candidate = _candidates_from_path_string(
+                local_p or record.get('path', ''))
+            if backup_candidate and os.path.exists(backup_candidate):
+                return backup_candidate
+        # backup not available -> try local anyway
+    # not older than cutoff (or backup missing) -> prefer local
+    if local_p:
+        if os.path.isabs(local_p) and os.path.exists(local_p):
+            return local_p
+        local_candidate, backup_candidate = _candidates_from_path_string(
+            local_p)
+        if local_candidate and os.path.exists(local_candidate):
+            return local_candidate
+        # fallback to backup candidate
+        if backup_candidate and os.path.exists(backup_candidate):
+            return backup_candidate
+
+    # final fallback: try direct backup_p absolute
+    if backup_p and os.path.isabs(backup_p) and os.path.exists(backup_p):
+        return backup_p
+
+    return None
 
 # --- API ---
 
@@ -239,7 +374,7 @@ def api_timeline():
             continue
         if end_dt and ts_dt > end_dt:
             continue
-        items.append({'timestamp': rec['timestamp'], 'ts_ms': rec['ts_ms'], 'path': rec['path'], 'win_title': rec.get(
+        items.append({'timestamp': rec['timestamp'], 'ts_ms': rec['ts_ms'], 'local_path': rec['local_path'], 'backup_path': rec['backup_path'], 'win_title': rec.get(
             'win_title'), 'win_app': rec.get('win_app')})
 
     items = sorted(items, key=lambda x: x['ts_ms'])
@@ -291,10 +426,24 @@ def api_thumbnail():
     if not path:
         abort(400)
     path = urllib.parse.unquote_plus(path)
-    safe = safe_image_path(path)
-    if not safe or not os.path.exists(safe):
+
+    # If path looks like a DB-stored value (may be relative or absolute),
+    # attempt to resolve via candidates and retention policy.
+    # If a direct match exists on filesystem, serve that.
+    # Otherwise try to map to backup location.
+    # We attempt to read a DB record if the path is actually a DB 'path' value (id could be passed),
+    # but most callers pass the stored path string — so we best-effort resolve it.
+    # Try quick-resolve by creating a pseudo-record with the path in local_path.
+    rec = {'local_path': path, 'backup_path': ''}
+    resolved = resolve_serving_path(rec)
+    if not resolved:
+        # fallback: attempt mapping via safe_image_path-like behavior
+        resolved_local, resolved_backup = _candidates_from_path_string(path)
+        resolved = resolved_local or resolved_backup
+
+    if not resolved or not os.path.exists(resolved):
         abort(404)
-    return send_file(safe)
+    return send_file(resolved)
 
 
 @APP.route('/api/open')
@@ -303,10 +452,16 @@ def api_open():
     if not path:
         abort(400)
     path = urllib.parse.unquote_plus(path)
-    safe = safe_image_path(path)
-    if not safe or not os.path.exists(safe):
+
+    rec = {'local_path': path, 'backup_path': ''}
+    resolved = resolve_serving_path(rec)
+    if not resolved:
+        resolved_local, resolved_backup = _candidates_from_path_string(path)
+        resolved = resolved_local or resolved_backup
+
+    if not resolved or not os.path.exists(resolved):
         abort(404)
-    return send_file(safe)
+    return send_file(resolved)
 
 
 @APP.route('/api/export')
@@ -342,10 +497,10 @@ def api_export():
     si = io.StringIO()
     cw = csv.writer(si)
     cw.writerow(['day', 'session', 'timestamp',
-                'path', 'win_title', 'win_app'])
+                'local_path', 'backup_path', 'win_title', 'win_app'])
     for r in filtered:
         cw.writerow([r.get('day'), r.get('session'), r.get(
-            'timestamp'), r.get('path'), r.get('win_title'), r.get('win_app')])
+            'timestamp'), r.get('local_path'), r.get('backup_path'), r.get('win_title'), r.get('win_app')])
     output = make_response(si.getvalue())
     output.headers['Content-Disposition'] = 'attachment; filename=recall-export.csv'
     output.headers['Content-Type'] = 'text/csv; charset=utf-8'

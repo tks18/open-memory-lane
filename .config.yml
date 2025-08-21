@@ -3,15 +3,20 @@
 # =========================
 
 paths:
-  base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
-  images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
-  timelapse_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse"
-  detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
-  summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
-  db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\recall.db"
-  log_folder: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
+  base_dir: "C:\\Users\\sutk\\.analytics\\personal-recall"
+  images_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Images"
+  timelapse_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse"
+  detailed_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse\\Detailed"
+  summary_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse\\Summary"
+  db_path: "C:\\Users\\sutk\\.analytics\\personal-recall\\recall.db"
+  log_folder: "C:\\Users\\sutk\\.analytics\\personal-recall"
+  onedrive_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
+  onedrive_images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
+  onedrive_detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
+  onedrive_summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
 
 session:
+  lock_stale_minutes: 30  # minutes to wait before locking a session
   minutes: 15            # length of each chunk
   idle_threshold: 60     # seconds of idle to allow video processing
   capture_interval: 1.0  # seconds between screenshots
@@ -26,3 +31,7 @@ video:
 client:
   port: 5000
   timeline_limit: 5000
+
+local_retention:
+  days: 4
+  backup_frequency_hrs: 3 
