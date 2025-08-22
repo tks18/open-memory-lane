@@ -185,7 +185,8 @@ def is_lock_stale(session_dir: str) -> bool:
     # check timestamp age (UTC)
     try:
         lock_time = datetime.datetime.fromisoformat(ts)
-        age_sec = (datetime.datetime.utcnow() - lock_time).total_seconds()
+        age_sec = (datetime.datetime.now(
+            datetime.UTC) - lock_time).total_seconds()
         if age_sec > LOCK_STALE_SECONDS:
             return True
     except Exception:
@@ -311,6 +312,10 @@ db_writer.start()
 # =========================
 
 
+def now_ms() -> int:
+    return int(time.time() * 1000)
+
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -328,6 +333,7 @@ def init_db():
         backup_path TEXT,
         win_title TEXT,
         win_app TEXT,
+        created_ts INTEGER, -- UNIX timestamp of when the image was captured
         processed INTEGER DEFAULT 0
     )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS videos (
@@ -336,6 +342,7 @@ def init_db():
         session TEXT,      -- HHMM-HHMM
         local_path TEXT,
         backup_path TEXT,
+        created_ts INTEGER, -- UNIX timestamp of when the video was created
         processed INTEGER DEFAULT 1
     )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS summaries (
@@ -343,11 +350,16 @@ def init_db():
         day TEXT,          -- YYYY-MM-DD
         local_path TEXT,
         backup_path TEXT,
+        created_ts INTEGER, -- UNIX timestamp of when the summary was created
         processed INTEGER DEFAULT 1
     )""")
+
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_images_created_ts ON images(created_ts)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_images_day ON images(day)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_videos_day ON videos(day)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_summaries_day ON summaries(day)")
+
     conn.commit()
     conn.close()
 
@@ -371,6 +383,7 @@ def ensure_archive_schema():
             backup_path TEXT,
             win_title TEXT,
             win_app TEXT,
+            created_ts INTEGER, -- UNIX timestamp of when the image was captured
             processed INTEGER DEFAULT 0
         )""")
         acur.execute("""CREATE TABLE IF NOT EXISTS videos (
@@ -379,6 +392,7 @@ def ensure_archive_schema():
             session TEXT,
             local_path TEXT,
             backup_path TEXT,
+            created_ts INTEGER, -- UNIX timestamp of when the video was created
             processed INTEGER DEFAULT 1
         )""")
         acur.execute("""CREATE TABLE IF NOT EXISTS summaries (
@@ -386,6 +400,7 @@ def ensure_archive_schema():
             day TEXT,
             local_path TEXT,
             backup_path TEXT,
+            created_ts INTEGER, -- UNIX timestamp of when the summary was created
             processed INTEGER DEFAULT 1
         )""")
 
@@ -396,6 +411,22 @@ def ensure_archive_schema():
             "CREATE UNIQUE INDEX IF NOT EXISTS ui_videos_day_session_path ON videos(day, session, local_path)")
         acur.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS ui_summaries_day_path ON summaries(day, local_path)")
+
+        # index on created_ts for efficient incremental queries
+        acur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_archive_images_created_ts ON images(created_ts)")
+        acur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_archive_videos_created_ts ON videos(created_ts)")
+        acur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_archive_summaries_created_ts ON summaries(created_ts)")
+
+        # meta table to track last sync state
+        acur.execute("""
+            CREATE TABLE IF NOT EXISTS archive_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
 
         aconn.commit()
         aconn.close()
@@ -433,25 +464,27 @@ def db_fetchall(query, params=()):
 
 def add_image(day: str, session: str, local_path: str, win_title, win_app, backup_path: str = None):
     """
-    Store both local and backup paths into DB. For backwards compatibility,
-    'path' will be set to local_path.
+    Store both local and backup paths into DB.
     """
-    query = """INSERT INTO images(day, session, local_path, backup_path, win_title, win_app)
-               VALUES (?,?,?,?,?,?)"""
+    ts = now_ms()
+    query = """INSERT INTO images(day, session, local_path, backup_path, win_title, win_app, created_ts)
+               VALUES (?,?,?,?,?,?,?)"""
     db_exec_async(query, (day, session, local_path,
-                          backup_path or "", win_title, win_app))
+                          backup_path or "", win_title, win_app, ts))
 
 
 def mark_video(day: str, session: str, local_path: str, backup_path: str = None):
-    query = """INSERT INTO videos(day, session, local_path, backup_path, processed)
-               VALUES (?,?,?,?,1)"""
-    db_exec_async(query, (day, session, local_path, backup_path or ""))
+    ts = now_ms()
+    query = """INSERT INTO videos(day, session, local_path, backup_path, created_ts, processed)
+               VALUES (?,?,?,?,?,1)"""
+    db_exec_async(query, (day, session, local_path, backup_path or "", ts))
 
 
 def mark_summary(day: str, local_path: str, backup_path: str = None):
-    query = """INSERT INTO summaries(day, path, local_path, backup_path, processed)
-               VALUES (?,?,?,?,1)"""
-    db_exec_async(query, (day, local_path, backup_path or ""))
+    ts = now_ms()
+    query = """INSERT INTO summaries(day, path, local_path, backup_path, created_ts processed)
+               VALUES (?,?,?,?,?,1)"""
+    db_exec_async(query, (day, local_path, backup_path or "", ts))
 
 
 def get_pending_video_sessions():
@@ -915,6 +948,130 @@ def ensure_remote_exists_for_day(local_day: str, local_root: str, remote_root: s
         return False
 
 
+def get_last_archived_ts() -> int:
+    """
+    Return last archived timestamp (epoch ms) stored in archive_meta or 0.
+    """
+    try:
+        if not os.path.exists(BACKUP_DB_PATH):
+            return 0
+        aconn = sqlite3.connect(BACKUP_DB_PATH, timeout=30)
+        acur = aconn.cursor()
+        acur.execute(
+            "CREATE TABLE IF NOT EXISTS archive_meta (key TEXT PRIMARY KEY, value TEXT)")
+        acur.execute(
+            "SELECT value FROM archive_meta WHERE key = 'last_archived_ts'")
+        row = acur.fetchone()
+        aconn.close()
+        if row and row[0]:
+            return int(row[0])
+    except Exception:
+        logger.exception("get_last_archived_ts failed")
+    return 0
+
+
+def set_last_archived_ts(ts_ms: int):
+    """
+    Upsert last_archived_ts into archive_meta (archive DB).
+    """
+    try:
+        os.makedirs(Path(BACKUP_DB_PATH).parent, exist_ok=True)
+        aconn = sqlite3.connect(BACKUP_DB_PATH, timeout=30)
+        acur = aconn.cursor()
+        acur.execute(
+            "CREATE TABLE IF NOT EXISTS archive_meta (key TEXT PRIMARY KEY, value TEXT)")
+        acur.execute("INSERT OR REPLACE INTO archive_meta (key, value) VALUES (?, ?)",
+                     ("last_archived_ts", str(int(ts_ms))))
+        aconn.commit()
+        aconn.close()
+    except Exception:
+        logger.exception("set_last_archived_ts failed for %s", ts_ms)
+
+
+def sync_db_to_archive(up_to_ts_ms: int | None = None):
+    """
+    Incrementally copy local DB rows into archive DB up to `up_to_ts_ms` (inclusive).
+    If up_to_ts_ms is None, uses now (epoch ms).
+    Works using created_ts column and last_archived_ts metadata.
+    """
+    try:
+        if not BACKUP_DB_PATH:
+            logger.debug("No ONEDRIVE_DB_PATH configured; skipping DB sync.")
+            return
+
+        ensure_archive_schema()
+
+        if up_to_ts_ms is None:
+            up_to_ts_ms = int(time.time() * 1000)
+
+        last_ts = get_last_archived_ts()
+        if last_ts >= up_to_ts_ms:
+            logger.debug(
+                "Archive DB already up-to-date (last_ts=%s, up_to=%s)", last_ts, up_to_ts_ms)
+            return
+
+        # give DB writer a moment to flush
+        try:
+            if 'db_writer' in globals():
+                time.sleep(0.25)
+        except Exception:
+            pass
+
+        conn = sqlite3.connect(DB_PATH, timeout=60)
+        cur = conn.cursor()
+        cur.execute("ATTACH DATABASE ? AS archive", (str(BACKUP_DB_PATH),))
+
+        tables = [
+            {
+                "tbl": "images",
+                "cols_insert": "(day, session, local_path, backup_path, win_title, win_app, created_ts, processed)",
+                "cols_select": "day, session, local_path, backup_path, win_title, win_app, created_ts, processed",
+            },
+            {
+                "tbl": "videos",
+                "cols_insert": "(day, session, local_path, backup_path, created_ts, processed)",
+                "cols_select": "day, session, local_path, backup_path, created_ts, processed",
+            },
+            {
+                "tbl": "summaries",
+                "cols_insert": "(day, local_path, backup_path, created_ts, processed)",
+                "cols_select": "day, local_path, backup_path, created_ts, processed",
+            },
+        ]
+
+        for t in tables:
+            tbl = t["tbl"]
+            cols_insert = t["cols_insert"]
+            cols_select = t["cols_select"]
+            try:
+                cur.execute("BEGIN")
+                sql = f"""
+                    INSERT OR IGNORE INTO archive.{tbl} {cols_insert}
+                    SELECT {cols_select} FROM {tbl}
+                    WHERE created_ts > ? AND created_ts <= ?
+                """
+                cur.execute(sql, (last_ts, up_to_ts_ms))
+                cur.execute("COMMIT")
+                logger.info("Synced table %s window (%s, %s]",
+                            tbl, last_ts, up_to_ts_ms)
+            except Exception:
+                cur.execute("ROLLBACK")
+                logger.exception(
+                    "Failed syncing table %s in window (%s, %s]", tbl, last_ts, up_to_ts_ms)
+
+        try:
+            cur.execute("DETACH DATABASE archive")
+        except Exception:
+            pass
+        conn.close()
+
+        # update progress only after successful sync
+        set_last_archived_ts(up_to_ts_ms)
+
+    except Exception:
+        logger.exception("sync_db_to_archive failed")
+
+
 def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
     """
     Move rows older than retention_days from local DB -> archive DB (OneDrive).
@@ -924,8 +1081,8 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
     Fixed: avoid parentheses around SELECT column-list (which caused "row value misused").
     """
     try:
-        cutoff = (datetime.date.today() -
-                  datetime.timedelta(days=retention_days)).isoformat()
+        cutoff_ts_ms = int((datetime.datetime.now(
+            datetime.UTC) - datetime.timedelta(days=LOCAL_RETENTION_DAYS)).timestamp() * 1000)
         conn = sqlite3.connect(DB_PATH, timeout=60)
         cur = conn.cursor()
 
@@ -962,13 +1119,13 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
                 insert_sql = f"""
                     INSERT OR IGNORE INTO archive.{tbl} {cols_insert}
                     SELECT {cols_select} FROM {tbl}
-                    WHERE day < ?
+                    WHERE created_ts < ?
                 """
-                cur.execute(insert_sql, (cutoff,))
+                cur.execute(insert_sql, (cutoff_ts_ms,))
 
                 try:
                     cur.execute(
-                        f"SELECT COUNT(*) FROM archive.{tbl} WHERE day < ?", (cutoff,))
+                        f"SELECT COUNT(*) FROM archive.{tbl} WHERE created_ts < ?", (cutoff_ts_ms,))
                     archive_count_after = cur.fetchone()[0]
                 except Exception:
                     archive_count_after = None
@@ -977,7 +1134,7 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
                 if tbl == "summaries":
                     del_sql = f"""
                         DELETE FROM {tbl}
-                        WHERE day < ?
+                        WHERE created_ts < ?
                           AND EXISTS (
                               SELECT 1 FROM archive.{tbl} a
                               WHERE a.day = {tbl}.day AND a.local_path = {tbl}.local_path
@@ -986,7 +1143,7 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
                 else:
                     del_sql = f"""
                         DELETE FROM {tbl}
-                        WHERE day < ?
+                        WHERE created_ts < ?
                           AND EXISTS (
                               SELECT 1 FROM archive.{tbl} a
                               WHERE a.day = {tbl}.day
@@ -994,10 +1151,10 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
                                 AND a.local_path = {tbl}.local_path
                           )
                     """
-                cur.execute(del_sql, (cutoff,))
+                cur.execute(del_sql, (cutoff_ts_ms,))
                 cur.execute("COMMIT")
                 logger.info("Archived & pruned table %s for cutoff %s (archive_count=%s)",
-                            tbl, cutoff, archive_count_after)
+                            tbl, cutoff_ts_ms, archive_count_after)
             except Exception:
                 cur.execute("ROLLBACK")
                 logger.exception("Failed archiving table %s", tbl)
@@ -1147,7 +1304,13 @@ def backup_worker(stop_event: threading.Event, interval_seconds: int = 3 * 60 * 
                 except Exception:
                     pass
 
-            # 4) Archive old records in DB
+            # 4) SYNC DB TO ARCHIVE
+            try:
+                sync_db_to_archive()  # sync incremental rows up to now
+            except Exception:
+                logger.exception("Periodic DB sync to archive failed")
+
+            # 5) Archive old records & Prune Local DB for only Retention Days
             try:
                 # give db_writer a chance to flush enqueued writes
                 if 'db_writer' in globals():
