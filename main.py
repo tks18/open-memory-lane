@@ -1417,7 +1417,13 @@ def on_exit(icon, item, stop_event: threading.Event):
             logger.exception("Failed to stop tray icon")
 
 
+worker = None
+backup_thread = None
+
+
 def run_tray_app():
+    global worker, backup_thread
+
     stop_event = threading.Event()
 
     # Start Main Worker
