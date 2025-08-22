@@ -1221,7 +1221,6 @@ class RecallWorker(threading.Thread):
         self.stop_event = stop_event
 
     def run(self):
-        ensure_dirs()
         init_db()
         cleanup_stale_locks(IMAGES_DIR)
         self.process_backlog()
@@ -1423,6 +1422,8 @@ backup_thread = None
 
 def run_tray_app():
     global worker, backup_thread
+
+    ensure_dirs()
 
     stop_event = threading.Event()
 
