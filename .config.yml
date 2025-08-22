@@ -11,12 +11,13 @@ paths:
   db_path: "C:\\Users\\sutk\\.analytics\\personal-recall\\recall.db"
   log_folder: "C:\\Users\\sutk\\.analytics\\personal-recall"
   backup_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
+  backup_db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\recall_archive.db"
   backup_images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
   backup_detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
   backup_summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
 
 session:
-  lock_stale_minutes: 30  # minutes to wait before locking a session
+  lock_stale_minutes: 30  # minutes to wait before a session becomes stale
   minutes: 15            # length of each chunk
   idle_threshold: 60     # seconds of idle to allow video processing
   capture_interval: 1.0  # seconds between screenshots
@@ -30,8 +31,8 @@ video:
 
 client:
   port: 5000
-  timeline_limit: 5000
+  timeline_limit: 5000   # Timeline API Max Image Limit
 
 local_retention:
-  days: 4
+  days: 7
   backup_frequency_hrs: 3 

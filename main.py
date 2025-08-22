@@ -9,6 +9,8 @@ import subprocess
 import datetime
 import yaml
 import json
+import queue
+import signal
 from pathlib import Path
 from win32 import win32gui, win32process
 from ctypes import Structure, windll, c_uint, sizeof, byref
@@ -40,6 +42,7 @@ LOG_PATH = os.path.join(LOG_FOLDER, "recorder.log")
 
 # backup paths
 BACKUP_BASE_DIR = Path(cfg["paths"]["backup_base_dir"])
+BACKUP_DB_PATH = Path(cfg["paths"]["backup_db_path"])
 BACKUP_IMAGES_DIR = Path(cfg["paths"]["backup_images_dir"])
 BACKUP_DETAILED_DIR = Path(cfg["paths"]["backup_detailed_dir"])
 BACKUP_SUMMARY_DIR = Path(cfg["paths"]["backup_summary_dir"])
@@ -51,6 +54,7 @@ BACKUP_FREQUENCY_HOURS = int(cfg["local_retention"]["backup_frequency_hrs"])
 # lock file stale seconds
 LOCK_STALE_MINUTES = int(cfg["session"]["lock_stale_minutes"])
 LOCK_STALE_SECONDS = LOCK_STALE_MINUTES * 60
+
 # length of each chunk
 SESSION_MINUTES = int(cfg["session"]["minutes"])
 # seconds of idle to allow video processing
@@ -106,7 +110,6 @@ def get_idle_time_seconds() -> float:
 # =========================
 # Lock file Helpers
 # =========================
-# ---------- Lock helpers ----------
 
 
 def lock_path_for(session_dir: str) -> str:
@@ -219,6 +222,90 @@ def cleanup_stale_locks(root_images_dir: str):
         logger.exception("cleanup_stale_locks failed for %s", root_images_dir)
 
 
+# ============================
+# DB Writer Worker
+# ============================
+
+
+class DBWriter(threading.Thread):
+    """
+    Background DB writer: collects jobs (SQL, params) and writes in a single transaction batch.
+    Use writer.enqueue(sql, params) to queue writes from capture thread.
+    """
+
+    def __init__(self, db_path: Path, batch_size: int = 200, flush_interval: float = 2.0):
+        super().__init__(daemon=True)
+        self.db_path = str(db_path)
+        self.batch_size = batch_size
+        self.flush_interval = flush_interval
+        self.q = queue.Queue()
+        self.stop_event = threading.Event()
+
+    def enqueue(self, sql, params=()):
+        self.q.put((sql, params))
+
+    def run(self):
+        while not self.stop_event.is_set():
+            items = []
+            try:
+                # block for up to flush_interval waiting for first item
+                try:
+                    item = self.q.get(timeout=self.flush_interval)
+                    items.append(item)
+                except queue.Empty:
+                    # nothing to flush; continue loop
+                    continue
+
+                # drain up to batch_size
+                while len(items) < self.batch_size:
+                    try:
+                        items.append(self.q.get_nowait())
+                    except queue.Empty:
+                        break
+
+                # perform batched transaction
+                conn = sqlite3.connect(self.db_path, timeout=30)
+                cur = conn.cursor()
+                try:
+                    cur.execute("BEGIN")
+                    for sql, params in items:
+                        cur.execute(sql, params)
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    logger.exception("DBWriter transaction failed")
+                finally:
+                    conn.close()
+            except Exception:
+                logger.exception("DBWriter run loop exception")
+                # slight sleep to avoid tight loop on repeated failures
+                time.sleep(1)
+
+    def stop(self):
+        self.stop_event.set()
+        # flush remaining items synchronously
+        remaining = []
+        while not self.q.empty():
+            remaining.append(self.q.get_nowait())
+        if remaining:
+            conn = sqlite3.connect(self.db_path, timeout=30)
+            cur = conn.cursor()
+            try:
+                cur.execute("BEGIN")
+                for sql, params in remaining:
+                    cur.execute(sql, params)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                logger.exception("DBWriter final flush failed")
+            finally:
+                conn.close()
+
+
+# Start DB writer
+db_writer = DBWriter(DB_PATH)
+db_writer.start()
+
 # =========================
 # DB helpers (SQLite)
 # =========================
@@ -227,6 +314,12 @@ def cleanup_stale_locks(root_images_dir: str):
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
+    # performance and concurrency tuning
+    cur.execute("PRAGMA journal_mode=WAL;")
+    cur.execute("PRAGMA synchronous=NORMAL;")
+    cur.execute("PRAGMA temp_store=MEMORY;")
+
     cur.execute("""CREATE TABLE IF NOT EXISTS images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         day TEXT,          -- YYYY-MM-DD
@@ -252,8 +345,62 @@ def init_db():
         backup_path TEXT,
         processed INTEGER DEFAULT 1
     )""")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_images_day ON images(day)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_videos_day ON videos(day)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_summaries_day ON summaries(day)")
     conn.commit()
     conn.close()
+
+    ensure_archive_schema()
+
+
+def ensure_archive_schema():
+    try:
+        # create directory for BACKUP_DB_PATH
+        os.makedirs(Path(BACKUP_DB_PATH).parent, exist_ok=True)
+        aconn = sqlite3.connect(BACKUP_DB_PATH, timeout=30)
+        acur = aconn.cursor()
+        acur.execute("PRAGMA journal_mode=WAL;")
+        acur.execute("PRAGMA synchronous=NORMAL;")
+        # same schemas as live
+        acur.execute("""CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            day TEXT,
+            session TEXT,
+            local_path TEXT,
+            backup_path TEXT,
+            win_title TEXT,
+            win_app TEXT,
+            processed INTEGER DEFAULT 0
+        )""")
+        acur.execute("""CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            day TEXT,
+            session TEXT,
+            local_path TEXT,
+            backup_path TEXT,
+            processed INTEGER DEFAULT 1
+        )""")
+        acur.execute("""CREATE TABLE IF NOT EXISTS summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            day TEXT,
+            local_path TEXT,
+            backup_path TEXT,
+            processed INTEGER DEFAULT 1
+        )""")
+
+        # IMPORTANT: create UNIQUE indexes to prevent duplicates (idempotent)
+        acur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ui_images_day_session_path ON images(day, session, local_path)")
+        acur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ui_videos_day_session_path ON videos(day, session, local_path)")
+        acur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ui_summaries_day_path ON summaries(day, local_path)")
+
+        aconn.commit()
+        aconn.close()
+    except Exception as e:
+        logger.exception("Failed to ensure archive schema: %s", e)
 
 
 def db_exec(query, params=()):
@@ -262,6 +409,17 @@ def db_exec(query, params=()):
     cur.execute(query, params)
     conn.commit()
     conn.close()
+
+
+def db_exec_async(sql, params=()):
+    """
+    Enqueue a write to the DBWriter (non-blocking).
+    """
+    try:
+        db_writer.enqueue(sql, params)
+    except Exception:
+        # fallback to synchronous write if queueing fails
+        db_exec(sql, params)
 
 
 def db_fetchall(query, params=()):
@@ -280,20 +438,20 @@ def add_image(day: str, session: str, local_path: str, win_title, win_app, backu
     """
     query = """INSERT INTO images(day, session, local_path, backup_path, win_title, win_app)
                VALUES (?,?,?,?,?,?)"""
-    db_exec(query, (day, session, local_path,
-            backup_path or "", win_title, win_app))
+    db_exec_async(query, (day, session, local_path,
+                          backup_path or "", win_title, win_app))
 
 
 def mark_video(day: str, session: str, local_path: str, backup_path: str = None):
     query = """INSERT INTO videos(day, session, local_path, backup_path, processed)
                VALUES (?,?,?,?,1)"""
-    db_exec(query, (day, session, local_path, backup_path or ""))
+    db_exec_async(query, (day, session, local_path, backup_path or ""))
 
 
 def mark_summary(day: str, local_path: str, backup_path: str = None):
     query = """INSERT INTO summaries(day, path, local_path, backup_path, processed)
                VALUES (?,?,?,?,1)"""
-    db_exec(query, (day, local_path, backup_path or ""))
+    db_exec_async(query, (day, local_path, backup_path or ""))
 
 
 def get_pending_video_sessions():
@@ -658,10 +816,13 @@ def capture_screenshot(last_img: Image.Image, save_dir: str, day: str, session: 
         logger.exception("Screenshot capture failed: %s", e)
         return last_img
 
+# ===========================
+# BACKUP WORKER
+# ===========================
 
-# backup worker
+# safe copy helpers
 
-# ---------- safe copy helpers ----------
+
 def safe_copy_file(src: str, dst: str):
     """
     Copy src -> dst safely:
@@ -752,6 +913,112 @@ def ensure_remote_exists_for_day(local_day: str, local_root: str, remote_root: s
         return os.path.isdir(remote_day) and bool(os.listdir(remote_day))
     except Exception:
         return False
+
+
+def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
+    """
+    Move rows older than retention_days from local DB -> archive DB (OneDrive).
+    Uses INSERT OR IGNORE + delete-where-exists to ensure only incremental new rows
+    are removed from the live DB. Idempotent.
+
+    Fixed: avoid parentheses around SELECT column-list (which caused "row value misused").
+    """
+    try:
+        cutoff = (datetime.date.today() -
+                  datetime.timedelta(days=retention_days)).isoformat()
+        conn = sqlite3.connect(DB_PATH, timeout=60)
+        cur = conn.cursor()
+
+        # Attach archive DB (on Backup) as 'archive'
+        cur.execute("ATTACH DATABASE ? AS archive", (str(BACKUP_DB_PATH),))
+
+        tables = [
+            {
+                "tbl": "images",
+                # columns to insert (parentheses used for INSERT target), and select list (no parentheses)
+                "cols_insert": "(day, session, local_path, backup_path, win_title, win_app, processed)",
+                "cols_select": "day, session, local_path, backup_path, win_title, win_app, processed",
+            },
+            {
+                "tbl": "videos",
+                "cols_insert": "(day, session, local_path, backup_path, processed)",
+                "cols_select": "day, session, local_path, backup_path, processed",
+            },
+            {
+                "tbl": "summaries",
+                "cols_insert": "(day, local_path, backup_path, processed)",
+                "cols_select": "day, local_path, backup_path, processed",
+            },
+        ]
+
+        for t in tables:
+            tbl = t["tbl"]
+            cols_insert = t["cols_insert"]
+            cols_select = t["cols_select"]
+
+            try:
+                # 1) Insert into archive (ignore duplicates due to unique index)
+                cur.execute("BEGIN")
+                insert_sql = f"""
+                    INSERT OR IGNORE INTO archive.{tbl} {cols_insert}
+                    SELECT {cols_select} FROM {tbl}
+                    WHERE day < ?
+                """
+                cur.execute(insert_sql, (cutoff,))
+
+                try:
+                    cur.execute(
+                        f"SELECT COUNT(*) FROM archive.{tbl} WHERE day < ?", (cutoff,))
+                    archive_count_after = cur.fetchone()[0]
+                except Exception:
+                    archive_count_after = None
+
+                # 2) Delete only rows that now exist in archive (safe-delete)
+                if tbl == "summaries":
+                    del_sql = f"""
+                        DELETE FROM {tbl}
+                        WHERE day < ?
+                          AND EXISTS (
+                              SELECT 1 FROM archive.{tbl} a
+                              WHERE a.day = {tbl}.day AND a.local_path = {tbl}.local_path
+                          )
+                    """
+                else:
+                    del_sql = f"""
+                        DELETE FROM {tbl}
+                        WHERE day < ?
+                          AND EXISTS (
+                              SELECT 1 FROM archive.{tbl} a
+                              WHERE a.day = {tbl}.day
+                                AND a.session = {tbl}.session
+                                AND a.local_path = {tbl}.local_path
+                          )
+                    """
+                cur.execute(del_sql, (cutoff,))
+                cur.execute("COMMIT")
+                logger.info("Archived & pruned table %s for cutoff %s (archive_count=%s)",
+                            tbl, cutoff, archive_count_after)
+            except Exception:
+                cur.execute("ROLLBACK")
+                logger.exception("Failed archiving table %s", tbl)
+
+        # detach archive
+        try:
+            cur.execute("DETACH DATABASE archive")
+        except Exception:
+            pass
+
+        conn.close()
+
+        # Compact local DB to reclaim space (do this sparingly; it's safe here for small DB)
+        try:
+            conn2 = sqlite3.connect(DB_PATH, timeout=60)
+            conn2.execute("VACUUM")
+            conn2.close()
+        except Exception:
+            logger.exception("VACUUM failed on local DB")
+    except Exception:
+        logger.exception("archive_old_records failed")
 
 
 def backup_worker(stop_event: threading.Event, interval_seconds: int = 3 * 60 * 60):
@@ -880,7 +1147,17 @@ def backup_worker(stop_event: threading.Event, interval_seconds: int = 3 * 60 * 
                 except Exception:
                     pass
 
-            # 4) CLEANUP OLD FILES/FOLDERS (beyond LOCAL_RETENTION_DAYS)
+            # 4) Archive old records in DB
+            try:
+                # give db_writer a chance to flush enqueued writes
+                if 'db_writer' in globals():
+                    # tiny pause; optional: implement db_writer.queue.join() semantics if needed
+                    time.sleep(0.25)
+                archive_old_records(LOCAL_RETENTION_DAYS)
+            except Exception:
+                logger.exception("Archive pass failed")
+
+            # 5) CLEANUP OLD FILES/FOLDERS (beyond LOCAL_RETENTION_DAYS)
             try:
                 cutoff = datetime.date.today() - datetime.timedelta(days=LOCAL_RETENTION_DAYS)
 
@@ -1078,19 +1355,83 @@ def open_root(_icon=None, _item=None):
 
 
 def on_exit(icon, item, stop_event: threading.Event):
-    stop_event.set()
-    icon.stop()
+    """
+    Graceful shutdown sequence:
+      1. signal workers to stop (stop_event)
+      2. give workers a short time to finish
+      3. stop+join db_writer (flushes pending DB writes)
+      4. join other background threads if available (worker, backup_thread)
+      5. stop the tray icon
+    """
+    logger.info("Shutdown requested via tray. Beginning graceful shutdown...")
+
+    try:
+        # 1) Signal threads to stop (producers/consumers should watch this)
+        try:
+            stop_event.set()
+        except Exception:
+            logger.exception("Failed to set stop_event")
+
+        # 2) small pause to let producers stop enqueuing quickly
+        time.sleep(0.25)
+
+        # 3) Join known worker threads (best-effort — they may be local variables)
+        # If you stored references globally, join them. Example names: worker, backup_thread
+        for candidate in ("worker", "backup_thread", "recall_worker"):
+            thr = globals().get(candidate)
+            if isinstance(thr, threading.Thread):
+                logger.info("Waiting for thread %s to stop...", candidate)
+                try:
+                    thr.join(timeout=5.0)
+                    if thr.is_alive():
+                        logger.warning(
+                            "Thread %s still alive after timeout", candidate)
+                except Exception:
+                    logger.exception("Error joining thread %s", candidate)
+
+        # 4) Stop DB writer (flush pending writes) then join it
+        dbw = globals().get("db_writer")
+        if dbw is not None:
+            try:
+                logger.info("Stopping DB writer...")
+                # db_writer.stop() flushes remaining queue synchronously per earlier implementation
+                dbw.stop()
+                # join the thread to ensure it has exited
+                if isinstance(dbw, threading.Thread):
+                    dbw.join(timeout=5.0)
+                    if dbw.is_alive():
+                        logger.warning(
+                            "db_writer still alive after join timeout")
+            except Exception:
+                logger.exception("Failed stopping/joining db_writer")
+
+    except Exception:
+        logger.exception("Unexpected error during on_exit")
+
+    finally:
+        # Always attempt to stop the tray icon (UI exit)
+        try:
+            icon.stop()
+        except Exception:
+            # last resort — log and ignore
+            logger.exception("Failed to stop tray icon")
 
 
 def run_tray_app():
     stop_event = threading.Event()
+
+    # Start Main Worker
     worker = RecallWorker(stop_event)
     worker.start()
 
+    # Start backup worker thread
     backup_thread = threading.Thread(
         target=backup_worker, args=(stop_event, 3 * 60 * 60), daemon=True
     )
     backup_thread.start()
+
+    signal.signal(signal.SIGINT, lambda *a: on_exit(icon, None, stop_event))
+    signal.signal(signal.SIGTERM, lambda *a: on_exit(icon, None, stop_event))
 
     menu = TrayMenu(
         Item("Open Memories", open_root),

@@ -339,11 +339,11 @@
                     </div>
                     <div class="col">
                         <label for="start">Start (date & time)</label>
-                        <input id="start" type="datetime-local" />
+                        <input id="start" type="datetime-local" placeholder="Last 7 days by default" />
                     </div>
                     <div class="col">
                         <label for="end">End (date & time)</label>
-                        <input id="end" type="datetime-local" />
+                        <input id="end" type="datetime-local" placeholder="Now" />
                     </div>
                 </div>
 
@@ -396,8 +396,7 @@
                                 <th>Session</th>
                                 <th>App</th>
                                 <th>Window title</th>
-                                <th>Local Path</th>
-                                <th>Backup Path</th>
+                                <th>Path</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -433,6 +432,8 @@
             const API_TIMELINE = '/api/timeline';
             const API_OPEN = '/api/open';
             const API_THUMB = '/api/thumbnail';
+            const API_CONFIG = '/api/config';
+
             let page = 1, pageSize = 20, total = 0;
             let timelineData = [];            // timeline items (sorted by ts_ms)
             let lastPageRows = [];            // current page rows (for search result viewer navigation)
@@ -441,6 +442,53 @@
             // Modal viewer state
             let viewerList = [];              // array of records {path, timestamp, win_app, win_title}
             let viewerIndex = 0;
+
+            // --------------------------------------------------
+            // Retention policy: how many days of local data to query by default
+            // You can change this number, or have the server inject it by replacing
+            // the constant at page-render time with the real value.
+            let DEFAULT_LOCAL_RETENTION_DAYS = 7;
+
+            async function fetchServerConfig() {
+                try {
+                    const res = await fetch(API_CONFIG);
+                    if (!res.ok) throw new Error('config fetch failed');
+                    const cfg = await res.json();
+                    if (cfg && Number.isFinite(Number(cfg.local_retention_days))) {
+                        DEFAULT_LOCAL_RETENTION_DAYS = Number(cfg.local_retention_days);
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch server config, using defaults', e);
+                }
+            }
+
+            // Helper: return ISO datetime local string for "now - days"
+            function isoNowMinusDays(days) {
+                const d = new Date();
+                d.setDate(d.getDate() - Number(days));
+                // produce format suitable for input[type=datetime-local] (without seconds offset)
+                // YYYY-MM-DDTHH:MM
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+            }
+
+            // Helper: compute default start/end for queries (ISO strings). end will be now.
+            function defaultDateRange(days = DEFAULT_LOCAL_RETENTION_DAYS) {
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const min = String(now.getMinutes()).padStart(2, '0');
+                const endIso = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+                const startIso = isoNowMinusDays(days);
+                return { start: startIso, end: endIso };
+            }
+
 
             function qs(id) { return document.getElementById(id) }
             function fmtLocal(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch (e) { return iso } }
@@ -467,8 +515,18 @@
                 const app = qs('win_app').value.trim();
                 if (title) params.set('win_title', title);
                 if (app) params.set('win_app', app);
-                const start = qs('start').value;
-                const end = qs('end').value;
+                let start = qs('start').value;
+                let end = qs('end').value;
+
+                // If user hasn't provided a range, default to recent LOCAL retention window
+                if (!start && !end) {
+                    const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+                    start = dr.start;
+                    end = dr.end;
+                    qs('start').value = start;
+                    qs('end').value = end;
+                }
+
                 if (start) params.set('start', start);
                 if (end) params.set('end', end);
                 params.set('page', page);
@@ -530,12 +588,6 @@
                     localCell.innerText = shortPath(localVal);
                     localCell.title = localVal;
 
-                    // Backup path cell
-                    const backupCell = document.createElement('td');
-                    const backupVal = r.backup_path || '';
-                    backupCell.innerText = shortPath(backupVal);
-                    backupCell.title = backupVal;
-
                     // Actions
                     const act = document.createElement('td');
                     const openBtn = document.createElement('button'); openBtn.innerText = 'Open'; openBtn.className = 'ghost';
@@ -559,7 +611,6 @@
                     tr.appendChild(app);
                     tr.appendChild(title);
                     tr.appendChild(localCell);
-                    tr.appendChild(backupCell);
                     tr.appendChild(act);
                     tbody.appendChild(tr);
                 });
@@ -573,8 +624,17 @@
                 const app = qs('win_app').value.trim();
                 if (title) params.set('win_title', title);
                 if (app) params.set('win_app', app);
-                const start = qs('start').value;
-                const end = qs('end').value;
+                let start = qs('start').value;
+                let end = qs('end').value;
+
+                if (!start && !end) {
+                    const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+                    start = dr.start;
+                    end = dr.end;
+                    qs('start').value = start;
+                    qs('end').value = end;
+                }
+
                 if (start) params.set('start', start);
                 if (end) params.set('end', end);
 
@@ -730,8 +790,24 @@
             qs('prevPage').addEventListener('click', () => { if (page > 1) { page--; doSearch(false) } });
             qs('nextPage').addEventListener('click', () => { if (page * pageSize < total) { page++; doSearch(false) } });
 
-            // initial load
-            doSearch(true);
+            // initialize: fetch server config, set placeholders and then run initial search
+            (async function init() {
+                await fetchServerConfig();
+
+                // show placeholders with the computed default range (nice UX)
+                try {
+                    const dr0 = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+                    qs('start').placeholder = dr0.start;
+                    qs('end').placeholder = dr0.end;
+                    qs('start').value = dr0.start;
+                    qs('end').value = dr0.end;
+                } catch (e) {
+                    console.warn('Could not set default placeholders', e);
+                }
+
+                // now perform initial search restricted to local retention window
+                doSearch(true);
+            })();
         </script>
     </body>
 

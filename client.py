@@ -33,18 +33,99 @@ IMAGES_BASE = Path(cfg["paths"]["images_dir"])
 TIMELINE_LIMIT = cfg["client"]["timeline_limit"]
 PORT = cfg["client"]["port"]
 
+BACKUP_DB_PATH = Path(cfg["paths"]["backup_db_path"])
 BACKUP_IMAGES_DIR = Path(cfg["paths"]["backup_images_dir"])
 LOCAL_RETENTION_DAYS = int(cfg["local_retention"]["days"])
 
 # --- Helpers ---
 
 
-def db_conn():
-    if not os.path.exists(DB_PATH):
-        raise FileNotFoundError(f"DB not found: {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH)
+def db_conn(path: Path = None):
+    use_path = Path(path) if path else Path(DB_PATH)
+    if not use_path.exists():
+        # don't error for archive lookup — return None so callers can fallback
+        raise FileNotFoundError(f"DB not found: {use_path}")
+    conn = sqlite3.connect(use_path)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def query_rows_from_conn(conn, win_title=None, win_app=None, start=None, end=None):
+    """
+    Query a given sqlite3.Connection for image rows using same selection logic.
+    start/end are ISO datetimes or None. This helper uses 'day' coarse filtering
+    (YYYY-MM-DD) to avoid heavy timestamp parsing in SQL.
+    Returns list of sqlite3.Row
+    """
+    cur = conn.cursor()
+
+    # prefer schema that includes local_path/backup_path; fallback handled below
+    base_cols = "id, day, session, local_path, backup_path, win_title, win_app"
+
+    q = f"SELECT {base_cols} FROM images WHERE 1=1"
+    params = []
+
+    if win_title:
+        q += " AND win_title LIKE ?"
+        params.append(f"%{win_title}%")
+    if win_app:
+        q += " AND win_app LIKE ?"
+        params.append(f"%{win_app}%")
+
+    # coarse day filtering if start/end provided (use only date part)
+    if start:
+        try:
+            start_day = datetime.datetime.fromisoformat(
+                start).date().isoformat()
+            q += " AND day >= ?"
+            params.append(start_day)
+        except Exception:
+            pass
+    if end:
+        try:
+            end_day = datetime.datetime.fromisoformat(end).date().isoformat()
+            q += " AND day <= ?"
+            params.append(end_day)
+        except Exception:
+            pass
+
+    q += " ORDER BY day DESC"
+
+    try:
+        cur.execute(q, params)
+        rows = cur.fetchall()
+        return rows
+    except sqlite3.OperationalError:
+        # older schema fallback (no local_path / onedrive_path)
+        q2 = "SELECT id, day, session, path, win_title, win_app FROM images WHERE 1=1"
+        params2 = []
+        if win_title:
+            q2 += " AND win_title LIKE ?"
+            params2.append(f"%{win_title}%")
+        if win_app:
+            q2 += " AND win_app LIKE ?"
+            params2.append(f"%{win_app}%")
+        if start:
+            try:
+                start_day = datetime.datetime.fromisoformat(
+                    start).date().isoformat()
+                q2 += " AND day >= ?"
+                params2.append(start_day)
+            except Exception:
+                pass
+        if end:
+            try:
+                end_day = datetime.datetime.fromisoformat(
+                    end).date().isoformat()
+                q2 += " AND day <= ?"
+                params2.append(end_day)
+            except Exception:
+                pass
+        q2 += " ORDER BY day DESC"
+        cur.execute(q2, params2)
+        rows = cur.fetchall()
+        return rows
+
 
 # Parse timestamp from filename. Recorder uses SCREENSHOT_dd_mm_YYYY_H_M_S.webp
 
@@ -88,40 +169,97 @@ def safe_image_path(p):
 # Generic fetch rows with optional filters
 
 
-def fetch_image_rows(win_title=None, win_app=None):
-    conn = db_conn()
-    cur = conn.cursor()
+def fetch_image_rows(win_title=None, win_app=None, start=None, end=None):
+    """
+    Fetch rows from local DB, and when requested date-range covers older than retention,
+    also fetch from archive DB (ONEDRIVE_DB_PATH) and merge results.
 
-    # attempt to fetch columns including local_path, backup_path if present,
-    # fallback to older schema selecting minimal columns
+    Returns: list of dicts (each dict represents a row).
+    """
+    rows_map = {}  # key -> dict
+    # 1) Query local DB (if exists)
     try:
-        q = ("SELECT id, day, session, local_path, backup_path, win_title, win_app "
-             "FROM images WHERE 1=1")
-        params = []
-        if win_title:
-            q += " AND win_title LIKE ?"
-            params.append(f"%{win_title}%")
-        if win_app:
-            q += " AND win_app LIKE ?"
-            params.append(f"%{win_app}%")
-        q += " ORDER BY day DESC"
-        cur.execute(q, params)
-    except sqlite3.OperationalError:
-        # older schema fallback
-        q = "SELECT id, day, session, path, win_title, win_app FROM images WHERE 1=1"
-        params = []
-        if win_title:
-            q += " AND win_title LIKE ?"
-            params.append(f"%{win_title}%")
-        if win_app:
-            q += " AND win_app LIKE ?"
-            params.append(f"%{win_app}%")
-        q += " ORDER BY day DESC"
-        cur.execute(q, params)
+        conn = db_conn(DB_PATH)
+    except FileNotFoundError:
+        conn = None
 
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+    if conn:
+        try:
+            local_rows = query_rows_from_conn(
+                conn, win_title, win_app, start, end)
+            for r in local_rows:
+                # normalize row to plain dict so we can safely use .get everywhere
+                try:
+                    rdict = dict(r)
+                except Exception:
+                    # if r is already a dict-like, just copy
+                    rdict = dict(r) if isinstance(r, dict) else {}
+                key = (rdict.get("day"), rdict.get(
+                    "session"), rdict.get("local_path"))
+                rows_map[key] = rdict
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    # 2) Decide whether to query archive DB:
+    need_archive = False
+    try:
+        if BACKUP_DB_PATH and str(BACKUP_DB_PATH).strip():
+            if start:
+                try:
+                    start_date = datetime.datetime.fromisoformat(start).date()
+                    cutoff = datetime.date.today() - datetime.timedelta(days=LOCAL_RETENTION_DAYS)
+                    if start_date < cutoff:
+                        need_archive = True
+                except Exception:
+                    need_archive = True
+            else:
+                if not rows_map:
+                    need_archive = True
+    except Exception:
+        need_archive = False
+
+    if need_archive:
+        try:
+            aconn = db_conn(BACKUP_DB_PATH)
+            try:
+                arch_rows = query_rows_from_conn(
+                    aconn, win_title, win_app, start, end)
+                for r in arch_rows:
+                    try:
+                        rdict = dict(r)
+                    except Exception:
+                        rdict = dict(r) if isinstance(r, dict) else {}
+                    key = (rdict.get("day"), rdict.get(
+                        "session"), rdict.get("path"))
+                    if key not in rows_map:
+                        rows_map[key] = rdict
+            finally:
+                try:
+                    aconn.close()
+                except Exception:
+                    pass
+        except FileNotFoundError:
+            # archive DB doesn't exist — that's fine
+            pass
+
+    # 3) Build list, sort by day/timestamp descending and return list of dicts
+    result_rows = list(rows_map.values())
+
+    # sort: try using timestamp-like info (day), fallback safe behavior
+    def ts_key(r):
+        try:
+            day = r.get("day")
+            if day:
+                return datetime.datetime.fromisoformat(day)
+            return datetime.datetime.min
+        except Exception:
+            return datetime.datetime.min
+
+    result_rows.sort(key=ts_key, reverse=True)
+    return result_rows
 
 # Convert DB row into record with parsed timestamp
 
@@ -279,6 +417,21 @@ def index():
     return send_from_directory("templates", "index.html")
 
 
+@APP.route('/api/config')
+def api_config():
+    """
+    Return small config object consumed by the front-end.
+    Keeps UI in sync with the recorder retention config.
+    """
+    try:
+        return jsonify({
+            "local_retention_days": LOCAL_RETENTION_DAYS
+        })
+    except Exception:
+        # graceful fallback
+        return jsonify({"local_retention_days": 7})
+
+
 @APP.route('/api/search')
 def api_search():
     win_title = request.args.get('win_title', type=str)
@@ -292,7 +445,7 @@ def api_search():
     page_size = max(1, min(200, page_size))
 
     # fetch all rows matching win_title / win_app filters
-    rows = fetch_image_rows(win_title, win_app)
+    rows = fetch_image_rows(win_title, win_app, start=start, end=end)
 
     # parse start / end filters
     start_dt = None
@@ -353,7 +506,7 @@ def api_timeline():
     start = request.args.get('start', type=str)
     end = request.args.get('end', type=str)
 
-    rows = fetch_image_rows(win_title, win_app)
+    rows = fetch_image_rows(win_title, win_app, start=start, end=end)
     items = []
     start_dt = None
     end_dt = None
@@ -400,7 +553,7 @@ def api_image_at():
     win_title = request.args.get('win_title', type=str)
     win_app = request.args.get('win_app', type=str)
 
-    rows = fetch_image_rows(win_title, win_app)
+    rows = fetch_image_rows(win_title, win_app, start=None, end=None)
     best = None
     best_ts = None
     for r in rows:
@@ -471,7 +624,7 @@ def api_export():
     start = request.args.get('start', type=str)
     end = request.args.get('end', type=str)
 
-    rows = fetch_image_rows(win_title, win_app)
+    rows = fetch_image_rows(win_title, win_app, start=start, end=end)
     filtered = []
     start_dt = None
     end_dt = None
@@ -508,7 +661,7 @@ def api_export():
 
 
 def run_flask():
-    APP.run(port=PORT, debug=False, use_reloader=False)
+    APP.run(port=PORT, debug=True, use_reloader=False)
 
 
 def create_tray_image():
