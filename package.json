@@ -16,7 +16,7 @@
     "init:cz": "commitizen init cz-conventional-changelog --yarn --dev --exact",
     "git:stage": "git add",
     "git:commit": "cz",
-    "git:push": "git push --follow-tags origin master",
+    "git:push": "git push --follow-tags origin dev",
     "release:pre": "standard-version --prerelease",
     "release:patch": "standard-version --release-as patch",
     "release:minor": "standard-version --release-as minor",
