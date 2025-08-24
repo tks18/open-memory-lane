@@ -22,10 +22,6 @@ All notable changes to this project will be documented in this file. See [standa
 
 * **release:** null ([721ccb6](https://github.com/tks18/open-memory-lane/commit/721ccb6a082210193e45dab0fbb31bb846344317))
 
-# Changelog
-
-All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
-
 ##  (2025-08-23)
 
 
