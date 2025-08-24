@@ -1,38 +1,34 @@
-# =========================
-# CONFIG FILE (config.yaml)
-# =========================
-
+app:
+  name: "personal-recall"
+  
 paths:
-  base_dir: "C:\\Users\\sutk\\.analytics\\personal-recall"
-  images_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Images"
-  timelapse_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse"
-  detailed_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse\\Detailed"
-  summary_dir: "C:\\Users\\sutk\\.analytics\\personal-recall\\Timelapse\\Summary"
-  db_path: "C:\\Users\\sutk\\.analytics\\personal-recall\\recall.db"
-  log_folder: "C:\\Users\\sutk\\.analytics\\personal-recall"
-  backup_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall"
-  backup_db_path: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\recall_archive.db"
-  backup_images_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Images"
-  backup_detailed_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Detailed"
-  backup_summary_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics\\personal-recall\\Timelapse\\Summary"
+  # Base directory for the app (dont put a slash at the end & put the base directory only, a subfolder will be created with the app_name)
+  base_dir: "C:\\Users\\sutk\\.analytics"   
+  backup_base_dir: "C:\\Users\\sutk\\OneDrive - Deloitte (O365D)\\.analytics"
 
 session:
   lock_stale_minutes: 30  # minutes to wait before a session becomes stale
-  minutes: 15            # length of each chunk
+  minutes: 2            # length of each chunk
   idle_threshold: 60     # seconds of idle to allow video processing
-  capture_interval: 1.0  # seconds between screenshots
+
+capture:
+  interval: 1.0  # seconds between screenshots
+  webp_quality: 75       # 0-100 lossy quality
+  hash_size: 8           # dHash dimensions -> 8x8 -> 64-bit
+  hamming_threshold: 12  # larger -> less sensitive
+  persistence_frames: 2  # require N consecutive frames crossing threshold
+  area_small_pxl: 128        # resolution to compute changed-area fraction
+  area_frac_threshold: 0.015 # fraction of pixels changed to consider (1.5%) 
 
 video:
-  webp_quality: 75       # 0-100 lossy quality
   ffmpeg: "ffmpeg"       # rely on PATH. If needed, set absolute path.
-  ssim_threshold: 0.95   # lower → more sensitive, higher → stricter
-  fps: 3                 # session video FPS
-  summary_video_fps: 10  # summary video FPS
+  fps: 4                 # session video FPS
+  summary_video_fps: 15  # summary video FPS
 
 client:
-  port: 5000
+  port: 5000             # Port for the client to connect
   timeline_limit: 5000   # Timeline API Max Image Limit
 
 local_retention:
-  days: 7
-  backup_frequency_hrs: 3 
+  days: 7                # How many days to keep local data before deletion
+  backup_freq_hrs: 3     # How often to backup data in hours
