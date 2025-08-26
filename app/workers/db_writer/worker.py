@@ -87,7 +87,7 @@ class DBWriter(threading.Thread):
         It collects commands in batches and executes them against the SQLite database.
         It will run until the `stop_event` is set, at which point it will flush any remaining items in the queue.
         """
-        logger.info("[%s] DBWriter started", self.thread_name)
+        logger.info("Worker Started")
         while not self.stop_event.is_set():
             items = []
             try:
@@ -123,6 +123,7 @@ class DBWriter(threading.Thread):
                 logger.exception("DBWriter run loop exception")
                 # slight sleep to avoid tight loop on repeated failures
                 time.sleep(1)
+        logger.info("Worker Stopped")
 
     def stop(self):
         self.stop_event.set()
