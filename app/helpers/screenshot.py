@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 from typing import Optional, Tuple
 from mss import mss
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from app.logger import logger
 from app.helpers.win import get_active_window_info
@@ -102,7 +102,68 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
             fname = now_dt.strftime("SCREENSHOT_%d_%m_%Y_%H_%M_%S.webp")
             os.makedirs(save_dir, exist_ok=True)
             path = os.path.join(save_dir, fname)
-            pil_img.save(path, "WEBP", quality=WEBP_QUALITY)
+
+            # Prepare timestamp
+            timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+            # Create a small overlay to draw text with alpha and composite it.
+            # Using full-size overlay is simple and memory-light for typical screens.
+            overlay = Image.new("RGBA", pil_img.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+
+            # Load font (fallback to default if truetype not available)
+            try:
+                font = ImageFont.truetype("arial.ttf", 14)
+            except Exception:
+                font = ImageFont.load_default()
+
+            # Measure text size robustly:
+            try:
+                # Newer Pillow: textbbox gives exact bbox (left,top,right,bottom)
+                bbox = draw.textbbox((0, 0), timestamp, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+            except Exception:
+                # Fallback for older Pillow versions
+                try:
+                    text_width, text_height = font.getsize(timestamp)
+                except Exception:
+                    # Super-defensive fallback
+                    text_width, text_height = (len(timestamp) * 7, 14)
+
+            # Position: top-right with margin
+            margin = 8
+            x = pil_img.width - text_width - margin
+            y = margin
+
+            # Draw semi-transparent rounded-ish rectangle behind text (slightly larger than text)
+            rect_padding = 10
+            rect_x0 = x - rect_padding
+            rect_y0 = y - rect_padding
+            rect_x1 = x + text_width + rect_padding
+            rect_y1 = y + text_height + rect_padding
+
+            # Semi-transparent black background (alpha 120/255)
+            draw.rectangle(
+                [(rect_x0, rect_y0), (rect_x1, rect_y1)], fill=(0, 0, 0, 255))
+
+            # Draw the timestamp (white, fully opaque)
+            draw.text((x, y), timestamp, font=font, fill=(255, 255, 255, 255))
+
+            # Composite overlay onto original image
+            # Convert base image to RGBA, paste overlay, then convert back to RGB before saving
+            base_rgba = pil_img.convert("RGBA")
+            composited = Image.alpha_composite(
+                base_rgba, overlay).convert("RGB")
+            composited.save(path, "WEBP", quality=WEBP_QUALITY)
+
+            # Encourage GC on ephemeral images
+            try:
+                overlay.close()
+                base_rgba.close()
+                composited.close()
+            except Exception:
+                pass
 
             backup_equiv = ""
             try:

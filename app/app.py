@@ -57,14 +57,14 @@ def run_tray_app():
 
     # Start Video Worker
     video_thread = VideoWriter(
-        thread_name="VideoWriter", db_writer=db_writer, flush_interval=1 * 60)
+        thread_name="VideoWriterThread", db_writer=db_writer, flush_interval=1 * 60)
 
     video_thread.start()
 
     # Start Main Worker
-    worker = CaptureWorker(stop_event=stop_event,
-                           thread_name="CaptureThread", db_writer=db_writer, video_writer=video_thread)
-    worker.start()
+    capture_worker = CaptureWorker(stop_event=stop_event,
+                                   thread_name="CaptureThread", db_writer=db_writer, video_writer=video_thread)
+    capture_worker.start()
 
     # Start backup worker thread
     backup_thread = BackupWorker(
@@ -74,7 +74,7 @@ def run_tray_app():
     flask_thread = run_flask_thread(stop_event=stop_event)
     logger.info("Flask thread started on port %s", CLIENT_PORT)
 
-    main_workers = [backup_thread, worker]
+    main_workers = [backup_thread, capture_worker]
     writer_workers = [video_thread, db_writer]
 
     signal.signal(

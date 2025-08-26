@@ -8,7 +8,7 @@ paths:
 
 session:
   lock_stale_minutes: 30  # minutes to wait before a session becomes stale
-  minutes: 2            # length of each chunk
+  minutes: 15            # length of each chunk
   idle_threshold: 60     # seconds of idle to allow video processing
 
 capture:

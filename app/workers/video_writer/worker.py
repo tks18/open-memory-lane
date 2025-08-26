@@ -70,7 +70,7 @@ class VideoWriter(threading.Thread):
         Main worker loop — pulls jobs from the queue and processes them.
         Runs until stop_event is set, then flushes remaining jobs.
         """
-        logger.info("[%s] VideoWriter started", self.thread_name)
+        logger.info("Worker Started")
         while not self.stop_event.is_set():
             try:
                 job = None
@@ -85,51 +85,58 @@ class VideoWriter(threading.Thread):
                 job_type = job[0]
                 if job_type == "make":
                     _, folder, out_file, day, session, local_path, backup_path = job
-                    logger.info("[%s] Processing MAKE job: %s -> %s",
-                                self.thread_name, folder, out_file)
+                    logger.info(
+                        "Processing Detailed Video: %s -> %s", folder, out_file)
                     if make_video_from_folder(folder, out_file):
                         mark_video(self.db_writer, day, session,
                                    local_path, backup_path)
                 elif job_type == "concat":
                     _, day, out_file, local_path, backup_path = job
                     logger.info(
-                        "[%s] Processing CONCAT job: day=%s -> %s", self.thread_name, day, out_file)
+                        "Processing Summary Video: day=%s -> %s", day, out_file)
                     if concat_daily_videos(day, out_file):
                         mark_summary(self.db_writer, day,
                                      local_path, backup_path)
                 else:
-                    logger.warning("[%s] Unknown job type: %s",
-                                   self.thread_name, job_type)
+                    logger.warning("Unknown job type: %s", job_type)
 
                 self.q.task_done()
             except Exception:
                 logger.exception(
-                    "[%s] Worker loop exception", self.thread_name)
+                    "Worker loop exception")
                 time.sleep(1)
 
         # Final flush
         self._flush_remaining()
+        logger.info("Worker Stopped")
 
     def _flush_remaining(self):
         """Flush remaining jobs synchronously on stop."""
-        logger.info("[%s] Flushing remaining jobs...", self.thread_name)
+        logger.info("Flushing remaining jobs...")
         while not self.q.empty():
             try:
                 job = self.q.get_nowait()
                 job_type = job[0]
                 if job_type == "make":
-                    _, folder, out_file, fps = job
-                    make_video_from_folder(
-                        folder, out_file, fps) if fps else make_video_from_folder(folder, out_file)
+                    _, folder, out_file, day, session, local_path, backup_path = job
+                    logger.info("Processing Detailed Video: %s -> %s",
+                                folder, out_file)
+                    if make_video_from_folder(folder, out_file):
+                        mark_video(self.db_writer, day, session,
+                                   local_path, backup_path)
                 elif job_type == "concat":
-                    _, day, out_file = job
-                    concat_daily_videos(day, out_file)
+                    _, day, out_file, local_path, backup_path = job
+                    logger.info(
+                        "Processing Summary Video: day=%s -> %s", day, out_file)
+                    if concat_daily_videos(day, out_file):
+                        mark_summary(self.db_writer, day,
+                                     local_path, backup_path)
                 self.q.task_done()
             except Exception:
-                logger.exception("[%s] Error flushing job", self.thread_name)
+                logger.exception("Error flushing job")
 
     def stop(self):
         """Stop the worker gracefully, flushing remaining jobs."""
-        logger.info("[%s] Stopping VideoWriter...", self.thread_name)
         self.stop_event.set()
         self.join()
+        logger.info("Worker Stopped")

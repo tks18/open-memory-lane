@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.1.0](https://github.com/tks18/open-memory-lane/compare/v2.0.0...v2.1.0) (2025-08-26)
+
+
+### Features 🔥
+
+* **screenshot:** add overlay of timestamp to the screenshot ([965044c](https://github.com/tks18/open-memory-lane/commit/965044ccfd9beec48ce9c47ade2a3f424b81fd5a))
+
+
+### Code Refactoring 🖌
+
+* **logger:** added proper logging to the workers ([271dc55](https://github.com/tks18/open-memory-lane/commit/271dc551b546d7edb33e99049ec55d537bcecc4e))
+* rename the var names for proper documentation ([dbb1fdb](https://github.com/tks18/open-memory-lane/commit/dbb1fdb16b0e2193d731672ab50ead6f7d1442fe))
+
+
+### Bug Fixes 🛠
+
+* **sql:** fix the sql statement for insert summary row ([50d5ce2](https://github.com/tks18/open-memory-lane/commit/50d5ce28b222ab4d05bade62399ac24db7bd6ec1))
+* **start_script:** fix the start script to refer the correct start file ([e5707da](https://github.com/tks18/open-memory-lane/commit/e5707da01c88fe7bf79ff74513c820a00d6b1a1a))
+
+
+### CI 🛠
+
+* **configs:** edited config, package.json for commit ci ([f8773ec](https://github.com/tks18/open-memory-lane/commit/f8773ec28a78544c78a1d5ed74391daa17f1c461))
+
 ## [2.0.0](https://github.com/tks18/open-memory-lane/compare/v1.0.0...v2.0.0) (2025-08-24)
 
 

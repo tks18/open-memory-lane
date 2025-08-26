@@ -58,7 +58,7 @@ class CaptureWorker(threading.Thread):
 
         self.process_backlog()
 
-        logger.info("[%s] CaptureWorker started", self.thread_name)
+        logger.info("Worker started")
         while not self.stop_event.is_set():
             today = datetime.date.today().isoformat()
             if today != current_day:
@@ -105,9 +105,10 @@ class CaptureWorker(threading.Thread):
                         current_day, session_label))
                 last_backlog_sweep = time.time()
 
-        logger.info("[%s] CaptureWorker stopped", self.thread_name)
+        logger.info("Worker stopped")
 
     def process_backlog(self, current_session=None):
+        logger.info("Processing Backlogs")
         for day, session in get_pending_video_sessions():
             if current_session and (day, session) == current_session:
                 continue
@@ -125,7 +126,7 @@ class CaptureWorker(threading.Thread):
             backup_out = to_backup_equivalent(
                 out_file, DETAILED_DIR, BACKUP_DETAILED_DIR)
             logger.info(
-                "[BACKLOG] Creating detailed video for %s %s", day, session)
+                "Backlog - Creating detailed video for %s %s", day, session)
             self.video_writer.enqueue_detailed_video(
                 folder, out_file, day, session, out_file, backup_out)
 
@@ -138,6 +139,6 @@ class CaptureWorker(threading.Thread):
             out_file = os.path.join(month_dir, f"{day}_summary.mp4")
             backup_summary = to_backup_equivalent(
                 out_file, SUMMARY_DIR, BACKUP_SUMMARY_DIR)
-            logger.info("[BACKLOG] Creating summary for %s", day)
+            logger.info("Backlog - Creating summary for %s", day)
             self.video_writer.enqueue_summary_video(
                 day, out_file, out_file, backup_summary)

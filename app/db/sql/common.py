@@ -90,8 +90,8 @@ SQL_INSERT_IMAGE = """INSERT INTO images(day, session, local_path, backup_path, 
 SQL_INSERT_VIDEO = """INSERT INTO videos(day, session, local_path, backup_path, created_ts, processed)
     VALUES (?,?,?,?,?,1)"""
 
-SQL_INSERT_SUMMARY = """INSERT INTO summaries(day, path, local_path, backup_path, created_ts processed)
-    VALUES (?,?,?,?,?,1)"""
+SQL_INSERT_SUMMARY = """INSERT INTO summaries(day, local_path, backup_path, created_ts, processed)
+    VALUES (?,?,?,?,1)"""
 
 SQL_TABLE_COLS = [
     {

@@ -36,7 +36,7 @@ class BackupWorker(threading.Thread):
         self.interval_seconds = interval_seconds
 
     def run(self):
-        logger.info("[%s] BackupWorker started", self.thread_name)
+        logger.info("Worker started")
         while not self.stop_event.is_set():
             try:
                 today = datetime.date.today().isoformat()
@@ -160,10 +160,7 @@ class BackupWorker(threading.Thread):
 
                 # 5) Archive old records & Prune Local DB for only Retention Days
                 try:
-                    # give db_writer a chance to flush enqueued writes
-                    if 'db_writer' in globals():
-                        # tiny pause; optional: implement db_writer.queue.join() semantics if needed
-                        time.sleep(0.25)
+                    time.sleep(0.25)
                     archive_old_records(LOCAL_RETENTION_DAYS)
                 except Exception:
                     logger.exception("Archive pass failed")
@@ -222,3 +219,4 @@ class BackupWorker(threading.Thread):
                 logger.exception("Backup to Folder Failed: %s", e)
 
             self.stop_event.wait(self.interval_seconds)
+        logger.info("Worker Stopped")
