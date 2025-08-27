@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.2.0](https://github.com/tks18/open-memory-lane/compare/v2.1.1...v2.2.0) (2025-08-27)
+
+
+### Bug Fixes 🛠
+
+* **helpers/video:** more optimizations for the video creations ([ef25182](https://github.com/tks18/open-memory-lane/commit/ef251829a85226d05f4b8c30a4d2df2fca02424a))
+
+
+### Docs 📃
+
+* **readme:** update readme ([5ce6c3e](https://github.com/tks18/open-memory-lane/commit/5ce6c3e73f124aef06efce9b3f0edec959884825))
+
 ### [2.1.1](https://github.com/tks18/open-memory-lane/compare/v2.1.0...v2.1.1) (2025-08-27)
 
 
