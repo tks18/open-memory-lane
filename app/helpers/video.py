@@ -2,6 +2,7 @@ import os
 import subprocess
 import glob
 import shutil
+import tempfile
 
 from app.helpers.config import FFMPEG, SESSION_VIDEO_FPS, SUMMARY_VIDEO_FPS
 from app.logger import logger
@@ -23,21 +24,39 @@ def ffmpeg_exists() -> bool:
         return False
 
 
+def _run_and_log(cmd):
+    """
+    Run subprocess and capture stderr on failure for better logs.
+    """
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.PIPE, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        # decode stderr if possible and log for debugging
+        err = (e.stderr.decode("utf-8", errors="replace")
+               if getattr(e, "stderr", None) else str(e))
+        logger.exception(
+            "ffmpeg failed: %s\ncmd: %s\nstderr: %s", e, " ".join(cmd), err)
+        return False
+    except Exception as e:
+        logger.exception(
+            "Unexpected error running ffmpeg: %s (cmd=%s)", e, " ".join(cmd))
+        return False
+
+
 def make_video_from_folder(folder: str, out_file: str, images_per_second: int = SESSION_VIDEO_FPS) -> bool:
     """
-    Create a video from still images in `folder` where each image is shown
-    at `images_per_second` rate (default 2 -> each image 0.5s).
-
-    Returns True on success, False on failure.
+    Create a video from .webp images in `folder` using a temporary sequential hardlink
+    directory so ffmpeg can read a %06d.webp sequence (works on Windows & Unix).
     """
     if not ffmpeg_exists():
         logger.error("ffmpeg not found in PATH. Skipping video creation.")
         return False
 
-    # collect webp/jpg/png images in lexicographic order
     images = sorted(
         p for p in os.listdir(folder)
-        if p.lower().endswith((".webp", ".png", ".jpg", ".jpeg"))
+        if p.lower().endswith(".webp")
     )
 
     if not images:
@@ -46,7 +65,7 @@ def make_video_from_folder(folder: str, out_file: str, images_per_second: int = 
 
     per_image = 1.0 / float(images_per_second)
 
-    # Single-image edge case: loop that one image for per_image seconds
+    # Edge case: single image -> loop that one for the required duration
     if len(images) == 1:
         img_path = os.path.abspath(os.path.join(
             folder, images[0])).replace("\\", "/")
@@ -58,34 +77,49 @@ def make_video_from_folder(folder: str, out_file: str, images_per_second: int = 
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             out_file
         ]
-    else:
-        # Let ffmpeg stream images directly from disk (much lower RAM usage)
+        return _run_and_log(cmd)
+
+    # Create temporary dir and populate sequential hardlinks (frame_000001.webp ...)
+    tmp_dir = tempfile.mkdtemp(prefix="pr_frames_")
+    try:
+        for i, img in enumerate(images, start=1):
+            src = os.path.join(folder, img)
+            dst = os.path.join(tmp_dir, f"{i:06d}.webp")
+            try:
+                # attempt a hardlink (cheap & quick)
+                os.link(src, dst)
+            except Exception:
+                # fallback to copy if linking is not possible
+                shutil.copy2(src, dst)
+
+        seq_pattern = os.path.join(tmp_dir, "%06d.webp").replace("\\", "/")
         cmd = [
             FFMPEG, "-y",
             "-framerate", str(images_per_second),
-            "-pattern_type", "glob",
-            "-i", os.path.join(folder, "*.webp"),
+            "-i", seq_pattern,
             "-c:v", "libx264",
+            "-preset", "veryfast",      # tweak for speed vs size; change if you want
             "-pix_fmt", "yuv420p",
             out_file
         ]
-    try:
-        subprocess.run(cmd, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, check=True)
-        logger.info("Created video: %s (images=%d, %.3fs/image => %.2f images/sec)",
-                    out_file, len(images), per_image, images_per_second)
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.exception("ffmpeg failed for %s: %s", folder, e)
-        return False
+        ok = _run_and_log(cmd)
+        if ok:
+            logger.info("Created video: %s (images=%d, %.3fs/image => %.2f images/sec)",
+                        out_file, len(images), per_image, images_per_second)
+        return ok
+    finally:
+        # cleanup temp dir
+        try:
+            shutil.rmtree(tmp_dir)
+        except Exception:
+            logger.exception("Failed to remove temp frames dir: %s", tmp_dir)
 
 
 def concat_daily_videos(day: str, out_file: str) -> bool:
     """
     Create a TIMELAPSE daily summary for `day` by:
-      - streaming all detailed mp4s in lexicographic order
-      - determining detailed fps (via ffprobe if available)
-      - applying a speed-up filter to match SUMMARY_VIDEO_FPS
+      - building a concat list (cross-platform)
+      - piping that concat demuxer into the timelapse filter directly (no tmp concat file)
     """
     if not ffmpeg_exists():
         logger.error("ffmpeg not found in PATH. Skipping summary creation.")
@@ -98,74 +132,78 @@ def concat_daily_videos(day: str, out_file: str) -> bool:
         logger.warning("No detailed videos found for day: %s", day)
         return False
 
-    # Stream all MP4s with glob instead of building concat list
-    input_pattern = os.path.join(day_dir, "*.mp4")
-
-    # Helper to parse fraction like "30000/1001" or "25/1" -> float
-    def _parse_frac(s):
-        try:
-            s = s.strip()
-            if "/" in s:
-                n, d = s.split("/")
-                n, d = float(n), float(d)
-                return n / d if d != 0 else None
-            return float(s)
-        except Exception:
-            return None
-
-    # Probe for detailed fps (try ffprobe)
-    detailed_fps = None
-    if shutil.which("ffprobe") is not None:
-        try:
-            # avg_frame_rate is typically "30000/1001" etc.
-            res = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "v:0",
-                    "-show_entries", "stream=avg_frame_rate",
-                    "-of", "default=noprint_wrappers=1:nokey=1", mp4s[0]],
-                capture_output=True, text=True, check=True
-            )
-            fps_str = (res.stdout or "").strip()
-            detailed_fps = _parse_frac(fps_str)
-        except Exception:
-            logger.exception(
-                "ffprobe failed to read avg_frame_rate for %s", mp4s[0])
-
-    # Fallback to SESSION_VIDEO_FPS if probing failed
-    if not detailed_fps or detailed_fps <= 0:
-        logger.warning(
-            "Couldn't determine detailed_fps via ffprobe, falling back to SESSION_VIDEO_FPS=%s", SESSION_VIDEO_FPS)
-        detailed_fps = float(SESSION_VIDEO_FPS)
-
-    # compute speed factor from fps ratio
+    # Create concat list file (platform-agnostic)
+    list_file = os.path.join(day_dir, f"{day}_concat_list.txt")
     try:
-        summary_fps_local = float(SUMMARY_VIDEO_FPS)
-    except Exception:
-        summary_fps_local = float(SESSION_VIDEO_FPS)
+        with open(list_file, "w", encoding="utf-8") as f:
+            for p in mp4s:
+                f.write(_ffconcat_line(p))
 
-    # speed_factor = summary_fps / detailed_fps, ensure >= 1.0 so we don't accidentally slow the day down
-    speed_factor = summary_fps_local / detailed_fps if detailed_fps > 0 else 1.0
-    if speed_factor < 1.0:
-        speed_factor = 1.0
+        # Probe fps from first file (if ffprobe available)
+        def _parse_frac(s):
+            try:
+                s = s.strip()
+                if "/" in s:
+                    n, d = s.split("/")
+                    n, d = float(n), float(d)
+                    return n / d if d != 0 else None
+                return float(s)
+            except Exception:
+                return None
 
-    logger.info("Daily concat: detailed_fps=%.3f, summary_fps=%.3f, speed_factor=%.3f",
-                detailed_fps, summary_fps_local, speed_factor)
+        detailed_fps = None
+        if shutil.which("ffprobe") is not None:
+            try:
+                res = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                     "-show_entries", "stream=avg_frame_rate",
+                     "-of", "default=noprint_wrappers=1:nokey=1", mp4s[0]],
+                    capture_output=True, text=True, check=True
+                )
+                fps_str = (res.stdout or "").strip()
+                detailed_fps = _parse_frac(fps_str)
+            except Exception:
+                logger.exception(
+                    "ffprobe failed to read avg_frame_rate for %s", mp4s[0])
 
-    # Build ffmpeg command
-    cmd = [
-        FFMPEG, "-y",
-        "-pattern_type", "glob",
-        "-i", input_pattern,
-        "-filter:v", f"setpts=PTS/{speed_factor}",
-        "-r", str(int(summary_fps_local)),
-        "-an",
-        out_file
-    ]
+        if not detailed_fps or detailed_fps <= 0:
+            logger.warning(
+                "Couldn't determine detailed_fps via ffprobe, falling back to SESSION_VIDEO_FPS=%s", SESSION_VIDEO_FPS)
+            detailed_fps = float(SESSION_VIDEO_FPS)
 
-    try:
-        subprocess.run(cmd, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, check=True)
-        logger.info("Created daily timelapse summary: %s", out_file)
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.exception("ffmpeg timelapse failed for %s: %s", day, e)
-        return False
+        try:
+            summary_fps_local = float(SUMMARY_VIDEO_FPS)
+        except Exception:
+            summary_fps_local = float(SESSION_VIDEO_FPS)
+
+        speed_factor = summary_fps_local / detailed_fps if detailed_fps > 0 else 1.0
+        if speed_factor < 1.0:
+            speed_factor = 1.0
+
+        logger.info("Daily concat: detailed_fps=%.3f, summary_fps=%.3f, speed_factor=%.3f",
+                    detailed_fps, summary_fps_local, speed_factor)
+
+        # Use concat demuxer as ffmpeg input and apply timelapse filter on-the-fly (no tmp file)
+        cmd = [
+            FFMPEG, "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", list_file,
+            "-filter:v", f"setpts=PTS/{speed_factor}",
+            "-r", str(int(summary_fps_local)),
+            "-an",
+            out_file
+        ]
+        ok = _run_and_log(cmd)
+        if ok:
+            logger.info(
+                "Created daily timelapse summary: %s (speed_factor=%.3f)", out_file, speed_factor)
+        return ok
+
+    finally:
+        # cleanup concat list
+        try:
+            if os.path.exists(list_file):
+                os.remove(list_file)
+        except Exception:
+            logger.exception("Failed to remove concat list: %s", list_file)
