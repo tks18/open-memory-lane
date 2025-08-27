@@ -269,14 +269,13 @@ def row_to_record(r):
 
 
 def downsample(items, limit):
-    if len(items) <= limit:
+    n = len(items)
+    if n <= limit:
         return items
-    step = max(1, int(len(items) / limit))
-    sampled = [items[i] for i in range(0, len(items), step)]
-    # ensure last item is included
-    if sampled[-1] != items[-1]:
-        sampled.append(items[-1])
-    return sampled
+    # generate 'limit' indices evenly spaced across 0..n-1
+    sampled_output = [items[round(i * (n - 1) / (limit - 1))]
+                      for i in range(limit)]
+    return sampled_output
 
 
 # other path helpers
