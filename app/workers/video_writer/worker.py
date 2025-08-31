@@ -1,28 +1,3 @@
-"""
-==========================
-Video Writer Worker Module
-==========================
-
-This module provides a background worker for creating videos from images
-and concatenating daily summaries in an asynchronous, non-blocking way.
-
-Features:
-- Implements a `VideoWriter` class that extends `threading.Thread`.
-- Collects video jobs in a queue (make or concat).
-- Processes jobs one by one in the background.
-- Provides methods to enqueue jobs and stop the worker gracefully.
-
-Usage:
->>> video_writer = VideoWriter("VideoWorker")
->>> video_writer.start()
->>> video_writer.enqueue_make("captures/20250824_10", "videos/20250824_10.mp4")
->>> video_writer.enqueue_concat("20250824", "videos/summary_20250824.mp4")
->>> video_writer.stop()
-
-*Author: Sudharshan TK*
-*Created: 2025-08-24*
-"""
-
 import threading
 import queue
 import time
@@ -54,21 +29,40 @@ class VideoWriter(threading.Thread):
 
     def enqueue_detailed_video(self, folder: str, out_file: str, day: str, session: str, local_path: str, backup_path: str = None):
         """
-        Enqueue a job to make a video from a folder of images.
+        Queue a job to create a detailed video from a folder of images.
+        This method adds a tuple to the queue with the following elements:
+        - job type ("make")
+
+        Args:
+            folder (str): Folder containing the images to be processed.
+            out_file (str): Output file name for the video.
+            day (str): The day of the video (YYYY-MM-DD).
+            session (str): The session name.
+            local_path (str): The local path to the folder.
+            backup_path (str, optional): The backup path to the folder. Defaults to None.
         """
         self.q.put(("make", folder, out_file, day,
                    session, local_path, backup_path))
 
     def enqueue_summary_video(self, day: str, out_file: str, local_path: str, backup_path: str = None):
         """
-        Enqueue a job to concatenate daily videos into a summary.
+        Queue a job to concatenate daily videos into a summary video.
+        This method adds a tuple to the queue with the following elements:
+        - job type ("concat")
+
+        Args:
+            day (str): The day of the video (YYYY-MM-DD).
+            out_file (str): The output file name for the summary video.
+            local_path (str): The local path to the folder containing the daily videos.
+            backup_path (str, optional): The backup path to the folder. Defaults to None.
         """
         self.q.put(("concat", day, out_file, local_path, backup_path))
 
     def run(self):
         """
-        Main worker loop — pulls jobs from the queue and processes them.
-        Runs until stop_event is set, then flushes remaining jobs.
+        Main worker loop — pulls jobs from the queue and processes them asynchronously.
+        Runs until `stop_event` is set, then flushes remaining jobs.
+        This method is called in a separate thread and continuously checks the queue for jobs.
         """
         logger.info("Worker Started")
         while not self.stop_event.is_set():
@@ -111,7 +105,11 @@ class VideoWriter(threading.Thread):
         logger.info("Worker Stopped")
 
     def _flush_remaining(self):
-        """Flush remaining jobs synchronously on stop."""
+        """
+        Flush remaining jobs synchronously on stop.
+        This method is called when the worker is stopped, and it flushes any remaining jobs in the queue.
+        It is used to ensure that the worker thread exits cleanly.
+        """
         logger.info("Flushing remaining jobs...")
         while not self.q.empty():
             try:
@@ -136,7 +134,10 @@ class VideoWriter(threading.Thread):
                 logger.exception("Error flushing job")
 
     def stop(self):
-        """Stop the worker gracefully, flushing remaining jobs."""
+        """
+        Stop the worker gracefully, flushing remaining jobs.
+        This method is called when the application is shutting down to ensure that the worker thread exits cleanly.
+        """
         self.stop_event.set()
         self.join()
         logger.info("Worker Stopped")

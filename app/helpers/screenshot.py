@@ -1,3 +1,29 @@
+"""
+==========================
+Screenshot Helper Module
+==========================
+
+This module provides helper functions for capturing screenshots and writing them to the database.
+It implements mss library to capture the screen and PIL library to process and save the captured image.
+Also we capture only meaninful changes of the capture. It uses Dhash and Hamming distance to detect changes and only capture if its greater than a threshold.
+
+
+Features:
+- Implements a `capture_screenshot` function that captures a screenshot and writes it to the database.
+- uses mss library to capture the screen
+- uses PIL library to process and save the captured image
+- uses Dhash and Hamming distance to detect changes
+- uses db_writer to write to the database
+- uses video_writer to create videos
+
+Usage:
+>>> from app.helpers.screenshot import capture_screenshot
+>>> capture_screenshot(db_writer, last_img, save_dir, day, session) -> Current Image / Previous Image
+
+
+*Author: Sudharshan TK*\n
+*Created: 2025-08-31*
+"""
 
 import os
 import datetime
@@ -34,6 +60,16 @@ last_window: Optional[Tuple[str, str]] = None
 
 
 def dhash_bits(cv_img_bgr: np.ndarray, hash_size: int = HASH_SIZE) -> np.ndarray:
+    """
+    Function to compute the difference hash of an image
+
+    Args:
+        cv_img_bgr (np.ndarray): Numpy array of the image
+        hash_size (int, optional): hash size. Defaults to HASH_SIZE.
+
+    Returns:
+        np.ndarray: The difference hash
+    """
     gray = cv2.cvtColor(cv_img_bgr, cv2.COLOR_BGR2GRAY)
     small = cv2.resize(gray, (hash_size + 1, hash_size),
                        interpolation=cv2.INTER_AREA)
@@ -42,12 +78,33 @@ def dhash_bits(cv_img_bgr: np.ndarray, hash_size: int = HASH_SIZE) -> np.ndarray
 
 
 def hamming_distance_bits(b1: Optional[np.ndarray], b2: Optional[np.ndarray]) -> int:
+    """
+    Function to compute the hamming distance between two difference hashes
+
+    Args:
+        b1 (Optional[np.ndarray]): Numpy array of the first difference hash
+        b2 (Optional[np.ndarray]): Numpy array of the second difference hash
+
+    Returns:
+        int: The hamming distance
+    """
     if b1 is None or b2 is None:
         return int(1e9)
     return int(np.count_nonzero(b1 != b2))
 
 
 def changed_area_fraction(cv_img1_bgr: Optional[np.ndarray], cv_img2_bgr: Optional[np.ndarray], small_size: Tuple[int, int] = AREA_SMALL) -> float:
+    """
+    Function to compute the changed area fraction between two images
+
+    Args:
+        cv_img1_bgr (Optional[np.ndarray]): Numpy array of the first image
+        cv_img2_bgr (Optional[np.ndarray]): Numpy array of the second image
+        small_size (Tuple[int, int], optional): The size of the small image. Defaults to AREA_SMALL.
+
+    Returns:
+        float: The changed area fraction
+    """
     if cv_img1_bgr is None or cv_img2_bgr is None:
         return 1.0
     a = cv2.resize(cv_img1_bgr, small_size, interpolation=cv2.INTER_AREA)
@@ -60,6 +117,23 @@ def changed_area_fraction(cv_img1_bgr: Optional[np.ndarray], cv_img2_bgr: Option
 
 
 def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], save_dir: str, day: str, session: str) -> Optional[Image.Image]:
+    """
+    Function to capture a screenshot. It uses the mss library to capture the screen and converts it to a PIL image.
+    It then computes the difference hash and hamming distance between the current frame and the last frame.
+    If the hamming distance is greater than a threshold, it computes the changed area fraction between the current frame and the last frame.
+    If the changed area fraction is greater than a threshold, it saves the current frame as an image and updates the last frame.
+    Finally, it returns the current frame.
+
+    Args:
+        db_writer (DBWriter): DB Writer Worker
+        last_img (Optional[Image.Image]): Last captured image
+        save_dir (str): Directory to save the image
+        day (str): Day in YYYY-MM-DD format
+        session (str): Session in HHMM-HHMM format
+
+    Returns:
+        Optional[Image.Image]: The current frame or previous frame if no change is detected
+    """
     global last_hash, last_frame_cv, consec_diff, last_window
 
     try:
@@ -76,6 +150,9 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
         if last_hash is None or last_img is None or window_tuple != last_window:
             should_save = True
         else:
+            # Check if there is a change
+            # Compute difference hash
+            # Compute hamming distance (Hamming Distance is the number of bits that are different between the two difference hashes)
             curr_hash = dhash_bits(curr_cv)
             dist = hamming_distance_bits(curr_hash, last_hash)
 

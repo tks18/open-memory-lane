@@ -1,3 +1,26 @@
+"""
+==========================
+Video Helper Module
+==========================
+
+This module provides helper functions for creating videos from images
+and concatenating daily summaries.
+
+
+Features:
+- `make_video`: Creates a video from a set of images.
+- `concat_videos`: Concatenates a set of videos into a single video.
+
+Usage:
+>>> from app.helpers.video import make_video, concat_videos
+>>> make_video("captures/20250824_10", "videos/20250824_10.mp4")
+>>> concat_videos("20250824", "videos/summary_20250824.mp4")
+
+
+*Author: Sudharshan TK*\n
+*Created: 2025-08-24*
+"""
+
 import os
 import subprocess
 import glob
@@ -16,6 +39,12 @@ def _ffconcat_line(p: str) -> str:
 
 
 def ffmpeg_exists() -> bool:
+    """
+    Check if ffmpeg is available.
+
+    Returns:
+        bool: True if ffmpeg is available, False otherwise.
+    """
     try:
         subprocess.run([FFMPEG, "-version"],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
