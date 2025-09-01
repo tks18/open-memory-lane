@@ -15,6 +15,18 @@ LOCAL_RETENTION_DAYS = cfg.LOCAL_RETENTION_DAYS
 
 
 def db_conn(path: Path = None):
+    """
+    Connect to SQLite database.
+
+    Args:
+        path (Path, optional): Path to database file. Defaults to None.
+
+    Raises:
+        FileNotFoundError: If database file is not found.
+
+    Returns:
+        sqlite3.Connection: SQLite database connection.
+    """
     use_path = Path(path) if path else Path(DB_PATH)
     if not use_path.exists():
         # don't error for archive lookup — return None so callers can fallback
@@ -105,6 +117,16 @@ def query_rows_from_conn(conn, win_title=None, win_app=None, start=None, end=Non
 
 
 def parse_timestamp_from_path(path_str):
+    """
+    Parse timestamp from path string.
+    Recorder uses SCREENSHOT_dd_mm_YYYY_H_M_S.webp
+
+    Args:
+        path_str (str): Path string.
+
+    Returns:
+        datetime: datetime
+    """
     try:
         b = os.path.basename(path_str)
         parts = b.split('_')
@@ -127,6 +149,15 @@ def parse_timestamp_from_path(path_str):
 
 
 def safe_image_path(p):
+    """
+    Safe path join to images base
+
+    Args:
+        p (str): path
+
+    Returns:
+        str: safe path
+    """
     p = os.path.normpath(p)
     try:
         candidate = Path(p)
@@ -269,14 +300,13 @@ def row_to_record(r):
 
 
 def downsample(items, limit):
-    if len(items) <= limit:
+    n = len(items)
+    if n <= limit:
         return items
-    step = max(1, int(len(items) / limit))
-    sampled = [items[i] for i in range(0, len(items), step)]
-    # ensure last item is included
-    if sampled[-1] != items[-1]:
-        sampled.append(items[-1])
-    return sampled
+    # generate 'limit' indices evenly spaced across 0..n-1
+    sampled_output = [items[round(i * (n - 1) / (limit - 1))]
+                      for i in range(limit)]
+    return sampled_output
 
 
 # other path helpers

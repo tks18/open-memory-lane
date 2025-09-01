@@ -1,814 +1,966 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shan's Memory Lane</title>
+    <link rel="icon" type="image/png" href="static/logo.png" />
+    <style>
+      :root {
+        --bg: #071028;
+        --card: #0b1220;
+        --muted: #94a3b8;
+        --accent: #0ea5a4;
+        --glass: rgba(255, 255, 255, 0.03);
+        --modal-bg: rgba(2, 6, 23, 0.9);
+      }
 
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <title>Shan's Memory Lane</title>
-        <link rel="icon" type="image/png" href="static/logo.png">
-        <style>
-            :root {
-                --bg: #071028;
-                --card: #0b1220;
-                --muted: #94a3b8;
-                --accent: #0ea5a4;
-                --glass: rgba(255, 255, 255, 0.03);
-                --modal-bg: rgba(2, 6, 23, 0.9);
-            }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family:
+          Inter,
+          Segoe UI,
+          Roboto,
+          Arial;
+        background: linear-gradient(180deg, #071028 0%, #07172b 100%);
+        color: #e6eef6;
+      }
 
-            html,
-            body {
-                height: 100%;
-                margin: 0;
-                font-family: Inter, Segoe UI, Roboto, Arial;
-                background: linear-gradient(180deg, #071028 0%, #07172b 100%);
-                color: #e6eef6
-            }
+      .wrap {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+      }
 
-            .wrap {
-                max-width: 1200px;
-                margin: 20px auto;
-                padding: 20px
-            }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
 
-            header {
-                display: flex;
-                align-items: center;
-                gap: 12px
-            }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
 
-            h1 {
-                margin: 0;
-                font-size: 20px
-            }
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 6px 24px rgba(2, 6, 23, 0.6);
+      }
 
-            .card {
-                background: var(--card);
-                border-radius: 12px;
-                padding: 14px;
-                box-shadow: 0 6px 24px rgba(2, 6, 23, 0.6)
-            }
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
 
-            .filters {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 10px;
-                margin-top: 14px
-            }
+      .filters .col {
+        display: flex;
+        flex-direction: column;
+      }
 
-            .filters .col {
-                display: flex;
-                flex-direction: column
-            }
+      label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
 
-            label {
-                font-size: 12px;
-                color: var(--muted);
-                margin-bottom: 6px
-            }
+      input[type='text'],
+      input[type='datetime-local'],
+      select {
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        background: var(--glass);
+        color: inherit;
+      }
 
-            input[type=text],
-            input[type=datetime-local],
-            select {
-                padding: 8px;
-                border-radius: 8px;
-                border: 1px solid rgba(255, 255, 255, 0.04);
-                background: var(--glass);
-                color: inherit
-            }
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 12px;
+      }
 
-            .actions {
+      button {
+        background: var(--accent);
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        color: #042024;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button.ghost {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+      }
+
+      .results {
+        margin-top: 18px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 10px 8px;
+        text-align: left;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+        font-size: 13px;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      tr:hover td {
+        background: rgba(255, 255, 255, 0.01);
+      }
+
+      .thumb {
+        width: 140px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .pager {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
+        margin-top: 8px;
+      }
+
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 5px;
+      }
+
+      .flex {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .export {
+        margin-left: auto;
+      }
+
+      .timeline-card {
+        margin-top: 16px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr;
+        /* stacked layout */
+        gap: 12px;
+      }
+
+      .timeline-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #timeline {
+        width: 100%;
+      }
+
+      .preview-wrap {
+        background: rgba(255, 255, 255, 0.02);
+        padding: 10px;
+        border-radius: 10px;
+
+        /* Center content */
+        display: flex;
+        flex-direction: column;
+        /* stack meta + image + buttons vertically */
+        align-items: center;
+        /* horizontally center */
+        text-align: center;
+      }
+
+      .preview-wrap img {
+        max-width: 100%;
+        max-height: 600px;
+        /* bigger preview */
+        border-radius: 8px;
+        cursor: pointer;
+        object-fit: contain;
+      }
+
+      /* Modal styles */
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: var(--modal-bg);
+        z-index: 9999;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal-content {
+        position: relative;
+        max-width: 94%;
+        max-height: 94%;
+        width: 1100px;
+        background: transparent;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .modal-img {
+        max-width: 100%;
+        max-height: 78vh;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      }
+
+      .modal-meta {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .modal-controls {
+        margin-top: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .modal-btn {
+        background: rgba(255, 255, 255, 0.06);
+        border: 0;
+        padding: 8px 12px;
+        border-radius: 8px;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(0, 0, 0, 0.35);
+        border: none;
+        color: white;
+        font-size: 28px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      #modalPrev {
+        left: 10px;
+      }
+
+      #modalNext {
+        right: 10px;
+      }
+
+      .modal-close {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        background: rgba(0, 0, 0, 0.45);
+        border: none;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      @media (max-width: 980px) {
+        .filters {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .timeline-card {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header>
+        <div
+          class="card"
+          style="
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          "
+        >
+          <img src="static/logo.png" width="48" height="48" alt="logo" />
+          <div>
+            <h1>Shan's Memory Lane</h1>
+            <div class="small">
+              Search & scrub — click any thumbnail to open the image viewer
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="card" style="margin-top: 12px">
+        <div class="filters">
+          <div class="col">
+            <label for="win_title">Window title</label>
+            <input
+              id="win_title"
+              type="text"
+              placeholder="Excel, Chrome, VSCode..."
+            />
+          </div>
+          <div class="col">
+            <label for="win_app">App name (process)</label>
+            <input
+              id="win_app"
+              type="text"
+              placeholder="EXCEL.EXE, chrome.exe..."
+            />
+          </div>
+          <div class="col">
+            <label for="start">Start (date & time)</label>
+            <input
+              id="start"
+              type="datetime-local"
+              placeholder="Last 7 days by default"
+            />
+          </div>
+          <div class="col">
+            <label for="end">End (date & time)</label>
+            <input id="end" type="datetime-local" placeholder="Now" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="searchBtn">Search</button>
+          <button id="clearBtn" class="ghost">Clear</button>
+          <div class="flex export">
+            <button id="exportBtn" class="ghost">Export CSV</button>
+            <div class="small" id="count">0 results</div>
+          </div>
+        </div>
+
+        <div
+          class="timeline-card"
+          id="timelineCard"
+          style="display: none; grid-template-columns: 1fr"
+        >
+          <div class="preview-wrap card" id="previewCard">
+            <div class="small" id="previewMeta">No image</div>
+            <img id="previewImg" src="" alt="preview" />
+            <div
+              style="
+                margin-top: 8px;
                 display: flex;
                 gap: 8px;
-                align-items: center;
-                margin-top: 12px
-            }
-
-            button {
-                background: var(--accent);
-                border: none;
-                padding: 10px 14px;
-                border-radius: 10px;
-                color: #042024;
-                cursor: pointer;
-                font-weight: 600
-            }
-
-            button.ghost {
-                background: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.06);
-                color: var(--muted)
-            }
-
-            .results {
-                margin-top: 18px
-            }
-
-            table {
-                width: 100%;
-                border-collapse: collapse
-            }
-
-            th,
-            td {
-                padding: 10px 8px;
-                text-align: left;
-                border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
-                font-size: 13px
-            }
-
-            th {
-                color: var(--muted);
-                font-weight: 600
-            }
-
-            tr:hover td {
-                background: rgba(255, 255, 255, 0.01)
-            }
-
-            .thumb {
-                width: 140px;
-                height: 80px;
-                object-fit: cover;
-                border-radius: 6px;
-                border: 1px solid rgba(255, 255, 255, 0.03);
-                cursor: pointer
-            }
-
-            .meta {
-                color: var(--muted);
-                font-size: 12px
-            }
-
-            .pager {
-                display: flex;
-                gap: 8px;
-                align-items: center;
-                justify-content: flex-end;
-                margin-top: 8px
-            }
-
-            .small {
-                font-size: 12px;
-                color: var(--muted);
-                padding: 5px;
-            }
-
-            .flex {
-                display: flex;
-                gap: 8px;
-                align-items: center
-            }
-
-            .export {
-                margin-left: auto
-            }
-
-            .timeline-card {
-                margin-top: 16px;
-                padding: 12px;
-                display: grid;
-                grid-template-columns: 1fr;
-                /* stacked layout */
-                gap: 12px;
-            }
-
-            .timeline-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 10px
-            }
-
-            .slider-row {
-                display: flex;
-                align-items: center;
-                gap: 10px
-            }
-
-            #timeline {
-                width: 100%
-            }
-
-            .preview-wrap {
-                background: rgba(255, 255, 255, 0.02);
-                padding: 10px;
-                border-radius: 10px;
-
-                /* Center content */
-                display: flex;
-                flex-direction: column;
-                /* stack meta + image + buttons vertically */
-                align-items: center;
-                /* horizontally center */
-                text-align: center;
-            }
-
-            .preview-wrap img {
-                max-width: 100%;
-                max-height: 600px;
-                /* bigger preview */
-                border-radius: 8px;
-                cursor: pointer;
-                object-fit: contain;
-            }
-
-            /* Modal styles */
-            .modal {
-                position: fixed;
-                inset: 0;
-                display: none;
-                align-items: center;
                 justify-content: center;
-                background: var(--modal-bg);
-                z-index: 9999;
-            }
+              "
+            >
+              <button id="openFull" class="ghost">Open Full</button>
+              <button id="downloadLink" class="modal-btn" href="#" download>
+                Download
+              </button>
+            </div>
+          </div>
 
-            .modal.open {
+          <div class="timeline-controls card" style="margin-top: 12px">
+            <div class="small">
+              Timeline (scrub to scan). Slider shows chosen time; image shown is
+              the latest captured ≤ chosen time.
+            </div>
+            <div class="slider-row">
+              <input
+                type="range"
+                id="timeline"
+                min="0"
+                max="0"
+                step="1"
+                value="0"
+              />
+            </div>
+            <div
+              style="
                 display: flex;
-            }
-
-            .modal-content {
-                position: relative;
-                max-width: 94%;
-                max-height: 94%;
-                width: 1100px;
-                background: transparent;
-                border-radius: 10px;
-                display: flex;
-                flex-direction: column;
+                gap: 8px;
                 align-items: center;
-            }
-
-            .modal-img {
-                max-width: 100%;
-                max-height: 78vh;
-                border-radius: 8px;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-            }
-
-            .modal-meta {
-                margin-top: 10px;
-                color: var(--muted);
-                font-size: 13px;
-                text-align: center
-            }
-
-            .modal-controls {
-                margin-top: 12px;
-                display: flex;
-                gap: 10px;
-                align-items: center
-            }
-
-            .modal-btn {
-                background: rgba(255, 255, 255, 0.06);
-                border: 0;
-                padding: 8px 12px;
-                border-radius: 8px;
-                color: var(--muted);
-                cursor: pointer
-            }
-
-            .nav-btn {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                background: rgba(0, 0, 0, 0.35);
-                border: none;
-                color: white;
-                font-size: 28px;
-                padding: 8px 12px;
-                border-radius: 8px;
-                cursor: pointer
-            }
-
-            #modalPrev {
-                left: 10px
-            }
-
-            #modalNext {
-                right: 10px
-            }
-
-            .modal-close {
-                position: absolute;
-                right: 8px;
-                top: 8px;
-                background: rgba(0, 0, 0, 0.45);
-                border: none;
-                color: white;
-                padding: 6px 10px;
-                border-radius: 6px;
-                cursor: pointer
-            }
-
-            @media(max-width:980px) {
-                .filters {
-                    grid-template-columns: repeat(2, 1fr)
-                }
-
-                .timeline-card {
-                    grid-template-columns: 1fr
-                }
-            }
-
-        </style>
-    </head>
-
-    <body>
-        <div class="wrap">
-            <header>
-                <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:12px">
-                    <img src="static/logo.png" width="48" height="48" alt="logo" />
-                    <div>
-                        <h1>Shan's Memory Lane</h1>
-                        <div class="small">Search & scrub — click any thumbnail to open the image viewer</div>
-                    </div>
-                </div>
-            </header>
-
-            <div class="card" style="margin-top:12px">
-                <div class="filters">
-                    <div class="col">
-                        <label for="win_title">Window title</label>
-                        <input id="win_title" type="text" placeholder="Excel, Chrome, VSCode..." />
-                    </div>
-                    <div class="col">
-                        <label for="win_app">App name (process)</label>
-                        <input id="win_app" type="text" placeholder="EXCEL.EXE, chrome.exe..." />
-                    </div>
-                    <div class="col">
-                        <label for="start">Start (date & time)</label>
-                        <input id="start" type="datetime-local" placeholder="Last 7 days by default" />
-                    </div>
-                    <div class="col">
-                        <label for="end">End (date & time)</label>
-                        <input id="end" type="datetime-local" placeholder="Now" />
-                    </div>
-                </div>
-
-                <div class="actions">
-                    <button id="searchBtn">Search</button>
-                    <button id="clearBtn" class="ghost">Clear</button>
-                    <div class="flex export">
-                        <button id="exportBtn" class="ghost">Export CSV</button>
-                        <div class="small" id="count">0 results</div>
-                    </div>
-                </div>
-
-                <div class="timeline-card" id="timelineCard" style="display:none; grid-template-columns:1fr;">
-                    <div class="preview-wrap card" id="previewCard">
-                        <div class="small" id="previewMeta">No image</div>
-                        <img id="previewImg" src="" alt="preview" />
-                        <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
-                            <button id="openFull" class="ghost">Open Full</button>
-                            <button id="downloadLink" class="modal-btn" href="#" download>Download</button>
-                        </div>
-                    </div>
-
-                    <div class="timeline-controls card" style="margin-top:12px;">
-                        <div class="small">Timeline (scrub to scan). Slider shows chosen time; image shown is the latest
-                            captured ≤ chosen time.</div>
-                        <div class="slider-row">
-                            <input type="range" id="timeline" min="0" max="0" step="1" value="0">
-                        </div>
-                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-                            <button id="playBtn" class="ghost">Play</button>
-                            <button id="pauseBtn" class="ghost">Pause</button>
-                            <div class="small">Speed:</div>
-                            <select id="speedSel">
-                                <option value="1">1x</option>
-                                <option value="2">2x</option>
-                                <option value="4">4x</option>
-                            </select>
-                            <div style="margin-left:auto" class="small" id="timelineLabel">—</div>
-                        </div>
-                        <div class="small" id="timelineStats" style="margin-top:4px;"></div>
-                    </div>
-                </div>
-
-                <div class="results card" id="resultsCard" style="display:block;margin-top:12px">
-                    <table id="resultsTable">
-                        <thead>
-                            <tr>
-                                <th>Preview</th>
-                                <th>Timestamp</th>
-                                <th>Session</th>
-                                <th>App</th>
-                                <th>Window title</th>
-                                <th>Path</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                    <div class="pager">
-                        <div class="small" id="pageInfo"></div>
-                        <button id="prevPage" class="ghost">Prev</button>
-                        <button id="nextPage">Next</button>
-                    </div>
-                </div>
+                margin-top: 6px;
+              "
+            >
+              <button id="playBtn" class="ghost">Play</button>
+              <button id="pauseBtn" class="ghost">Pause</button>
+              <div class="small">Speed:</div>
+              <select id="speedSel">
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+              <div style="margin-left: auto" class="small" id="timelineLabel">
+                —
+              </div>
             </div>
+            <div class="small" id="timelineStats" style="margin-top: 4px"></div>
+          </div>
         </div>
 
-        <!-- Modal / Image Viewer -->
-        <div id="imageModal" class="modal" aria-hidden="true">
-            <button id="modalPrev" class="nav-btn" title="Previous">❮</button>
-            <div class="modal-content card" role="dialog" aria-modal="true">
-                <button id="modalClose" class="modal-close" title="Close">✕</button>
-                <img id="modalImg" class="modal-img" src="" alt="Full image" />
-                <div class="modal-meta" id="modalMeta">—</div>
-                <div class="modal-controls">
-                    <a id="modalDownload" class="modal-btn" href="#" download>Download</a>
-                    <button id="modalOpenNew" class="modal-btn">Open in new tab</button>
-                </div>
-            </div>
-            <button id="modalNext" class="nav-btn" title="Next">❯</button>
+        <div
+          class="results card"
+          id="resultsCard"
+          style="display: block; margin-top: 12px"
+        >
+          <table id="resultsTable">
+            <thead>
+              <tr>
+                <th>Preview</th>
+                <th>Timestamp</th>
+                <th>Session</th>
+                <th>App</th>
+                <th>Window title</th>
+                <th>Path</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="pager">
+            <div class="small" id="pageInfo"></div>
+            <button id="prevPage" class="ghost">Prev</button>
+            <button id="nextPage">Next</button>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <script>
-            // API endpoints (server.py must expose these)
-            const API_SEARCH = '/api/search';
-            const API_TIMELINE = '/api/timeline';
-            const API_OPEN = '/api/open';
-            const API_THUMB = '/api/thumbnail';
-            const API_CONFIG = '/api/config';
+    <!-- Modal / Image Viewer -->
+    <div id="imageModal" class="modal" aria-hidden="true">
+      <button id="modalPrev" class="nav-btn" title="Previous">❮</button>
+      <div class="modal-content card" role="dialog" aria-modal="true">
+        <button id="modalClose" class="modal-close" title="Close">✕</button>
+        <img id="modalImg" class="modal-img" src="" alt="Full image" />
+        <div class="modal-meta" id="modalMeta">—</div>
+        <div class="modal-controls">
+          <a id="modalDownload" class="modal-btn" href="#" download>Download</a>
+          <button id="modalOpenNew" class="modal-btn">Open in new tab</button>
+        </div>
+      </div>
+      <button id="modalNext" class="nav-btn" title="Next">❯</button>
+    </div>
 
-            let page = 1, pageSize = 20, total = 0;
-            let timelineData = [];            // timeline items (sorted by ts_ms)
-            let lastPageRows = [];            // current page rows (for search result viewer navigation)
-            let playInterval = null;
+    <script>
+      // API endpoints (server.py must expose these)
+      const API_SEARCH = '/api/search';
+      const API_TIMELINE = '/api/timeline';
+      const API_OPEN = '/api/open';
+      const API_THUMB = '/api/thumbnail';
+      const API_CONFIG = '/api/config';
 
-            // Modal viewer state
-            let viewerList = [];              // array of records {path, timestamp, win_app, win_title}
-            let viewerIndex = 0;
+      let page = 1,
+        pageSize = 20,
+        total = 0;
+      let timelineData = []; // timeline items (sorted by ts_ms)
+      let lastPageRows = []; // current page rows (for search result viewer navigation)
+      let playInterval = null;
 
-            // --------------------------------------------------
-            // Retention policy: how many days of local data to query by default
-            // You can change this number, or have the server inject it by replacing
-            // the constant at page-render time with the real value.
-            let DEFAULT_LOCAL_RETENTION_DAYS = 7;
+      // Modal viewer state
+      let viewerList = []; // array of records {path, timestamp, win_app, win_title}
+      let viewerIndex = 0;
 
-            async function fetchServerConfig() {
-                try {
-                    const res = await fetch(API_CONFIG);
-                    if (!res.ok) throw new Error('config fetch failed');
-                    const cfg = await res.json();
-                    if (cfg && Number.isFinite(Number(cfg.local_retention_days))) {
-                        DEFAULT_LOCAL_RETENTION_DAYS = Number(cfg.local_retention_days);
-                    }
-                } catch (e) {
-                    console.warn('Could not fetch server config, using defaults', e);
-                }
-            }
+      // --------------------------------------------------
+      // Retention policy: how many days of local data to query by default
+      // You can change this number, or have the server inject it by replacing
+      // the constant at page-render time with the real value.
+      let DEFAULT_LOCAL_RETENTION_DAYS = 7;
 
-            // Helper: return ISO datetime local string for "now - days"
-            function isoNowMinusDays(days) {
-                const d = new Date();
-                d.setDate(d.getDate() - Number(days));
-                // produce format suitable for input[type=datetime-local] (without seconds offset)
-                // YYYY-MM-DDTHH:MM
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                const hh = String(d.getHours()).padStart(2, '0');
-                const min = String(d.getMinutes()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-            }
+      async function fetchServerConfig() {
+        try {
+          const res = await fetch(API_CONFIG);
+          if (!res.ok) throw new Error('config fetch failed');
+          const cfg = await res.json();
+          if (cfg && Number.isFinite(Number(cfg.local_retention_days))) {
+            DEFAULT_LOCAL_RETENTION_DAYS = Number(cfg.local_retention_days);
+          }
+        } catch (e) {
+          console.warn('Could not fetch server config, using defaults', e);
+        }
+      }
 
-            // Helper: compute default start/end for queries (ISO strings). end will be now.
-            function defaultDateRange(days = DEFAULT_LOCAL_RETENTION_DAYS) {
-                const now = new Date();
-                const yyyy = now.getFullYear();
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
-                const hh = String(now.getHours()).padStart(2, '0');
-                const min = String(now.getMinutes()).padStart(2, '0');
-                const endIso = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-                const startIso = isoNowMinusDays(days);
-                return { start: startIso, end: endIso };
-            }
+      // Helper: return ISO datetime local string for "now - days"
+      function isoNowMinusDays(days) {
+        const d = new Date();
+        d.setDate(d.getDate() - Number(days));
+        // produce format suitable for input[type=datetime-local] (without seconds offset)
+        // YYYY-MM-DDTHH:MM
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+      }
 
+      // Helper: compute default start/end for queries (ISO strings). end will be now.
+      function defaultDateRange(days = DEFAULT_LOCAL_RETENTION_DAYS) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const endIso = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        const startIso = isoNowMinusDays(days);
+        return { start: startIso, end: endIso };
+      }
 
-            function qs(id) { return document.getElementById(id) }
-            function fmtLocal(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch (e) { return iso } }
+      function qs(id) {
+        return document.getElementById(id);
+      }
+      function fmtLocal(iso) {
+        if (!iso) return '—';
+        try {
+          return new Date(iso).toLocaleString();
+        } catch (e) {
+          return iso;
+        }
+      }
 
-            // prefer local_path -> path
-            function resolveClientPath(rec) {
-                if (!rec) return '';
-                return rec.local_path || rec.backup_path || '';
-            }
+      // prefer local_path -> path
+      function resolveClientPath(rec) {
+        if (!rec) return '';
+        return rec.local_path || rec.backup_path || '';
+      }
 
-            // show short path in table cell but preserve full path as title
-            function shortPath(p, maxLen = 60) {
-                if (!p) return '';
-                if (p.length <= maxLen) return p;
-                // show trailing bits (filename + tail)
-                return '…' + p.slice(-maxLen);
-            }
+      // show short path in table cell but preserve full path as title
+      function shortPath(p, maxLen = 60) {
+        if (!p) return '';
+        if (p.length <= maxLen) return p;
+        // show trailing bits (filename + tail)
+        return '…' + p.slice(-maxLen);
+      }
 
-            // ---------- SEARCH + RESULTS ----------
-            async function doSearch(reset = true) {
-                if (reset) { page = 1 }
-                const params = new URLSearchParams();
-                const title = qs('win_title').value.trim();
-                const app = qs('win_app').value.trim();
-                if (title) params.set('win_title', title);
-                if (app) params.set('win_app', app);
-                let start = qs('start').value;
-                let end = qs('end').value;
+      // ---------- SEARCH + RESULTS ----------
+      async function doSearch(reset = true) {
+        if (reset) {
+          page = 1;
+        }
+        const params = new URLSearchParams();
+        const title = qs('win_title').value.trim();
+        const app = qs('win_app').value.trim();
+        if (title) params.set('win_title', title);
+        if (app) params.set('win_app', app);
+        let start = qs('start').value;
+        let end = qs('end').value;
 
-                // If user hasn't provided a range, default to recent LOCAL retention window
-                if (!start && !end) {
-                    const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
-                    start = dr.start;
-                    end = dr.end;
-                    qs('start').value = start;
-                    qs('end').value = end;
-                }
+        // If user hasn't provided a range, default to recent LOCAL retention window
+        if (!start && !end) {
+          const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+          start = dr.start;
+          end = dr.end;
+          qs('start').value = start;
+          qs('end').value = end;
+        }
 
-                if (start) params.set('start', start);
-                if (end) params.set('end', end);
-                params.set('page', page);
-                params.set('page_size', pageSize);
+        if (start) params.set('start', start);
+        if (end) params.set('end', end);
+        params.set('page', page);
+        params.set('page_size', pageSize);
 
-                qs('searchBtn').disabled = true;
-                try {
-                    const res = await fetch(API_SEARCH + '?' + params.toString());
-                    if (!res.ok) throw new Error(await res.text());
-                    const data = await res.json();
-                    total = data.total || 0;
-                    lastPageRows = data.rows || [];
+        qs('searchBtn').disabled = true;
+        try {
+          const res = await fetch(API_SEARCH + '?' + params.toString());
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          total = data.total || 0;
+          lastPageRows = data.rows || [];
 
-                    // sort by timestamp descending
-                    const sortedRows = [...lastPageRows].sort((a, b) => {
-                        const ta = a.ts_ms;
-                        const tb = b.ts_ms;
-                        return tb - ta;
-                    });
+          // sort by timestamp descending
+          const sortedRows = [...lastPageRows].sort((a, b) => {
+            const ta = a.ts_ms;
+            const tb = b.ts_ms;
+            return tb - ta;
+          });
 
-                    renderResults(sortedRows);
-                    qs('count').innerText = `${total} results`;
-                    qs('pageInfo').innerText = `Page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`;
+          renderResults(sortedRows);
+          qs('count').innerText = `${total} results`;
+          qs('pageInfo').innerText =
+            `Page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`;
 
-                    // load timeline for current filters (no pagination)
-                    await loadTimeline();
+          // load timeline for current filters (no pagination)
+          await loadTimeline();
+        } catch (err) {
+          alert('Search failed: ' + err.message);
+        } finally {
+          qs('searchBtn').disabled = false;
+        }
+      }
 
-                } catch (err) {
-                    alert('Search failed: ' + err.message);
-                } finally { qs('searchBtn').disabled = false }
-            }
+      function renderResults(rows) {
+        const tbody = document.querySelector('#resultsTable tbody');
+        tbody.innerHTML = '';
+        rows.forEach((r, idx) => {
+          const tr = document.createElement('tr');
 
-            function renderResults(rows) {
-                const tbody = document.querySelector('#resultsTable tbody');
-                tbody.innerHTML = '';
-                rows.forEach((r, idx) => {
-                    const tr = document.createElement('tr');
+          // Preview thumbnail
+          const thumbTd = document.createElement('td');
+          const img = document.createElement('img');
+          img.className = 'thumb';
+          const resolvedPath = resolveClientPath(r);
+          img.src = API_THUMB + '?path=' + encodeURIComponent(resolvedPath);
+          img.alt = 'preview';
+          img.addEventListener('error', () => {
+            img.src = '';
+          }); // hide broken thumb
+          // click opens modal — viewer navigates within current page rows
+          img.addEventListener('click', () => openModalFromList(rows, idx));
+          thumbTd.appendChild(img);
 
-                    // Preview thumbnail
-                    const thumbTd = document.createElement('td');
-                    const img = document.createElement('img');
-                    img.className = 'thumb';
-                    const resolvedPath = resolveClientPath(r);
-                    img.src = API_THUMB + '?path=' + encodeURIComponent(resolvedPath);
-                    img.alt = 'preview';
-                    img.addEventListener('error', () => { img.src = ''; }); // hide broken thumb
-                    // click opens modal — viewer navigates within current page rows
-                    img.addEventListener('click', () => openModalFromList(rows, idx));
-                    thumbTd.appendChild(img);
+          const ts = document.createElement('td');
+          ts.innerText = r.timestamp ? fmtLocal(r.timestamp) : r.day || '';
+          const sess = document.createElement('td');
+          sess.innerText = r.session || '';
+          const app = document.createElement('td');
+          app.innerText = r.win_app || '';
+          const title = document.createElement('td');
+          title.innerText = r.win_title || '';
 
-                    const ts = document.createElement('td'); ts.innerText = r.timestamp ? fmtLocal(r.timestamp) : r.day || '';
-                    const sess = document.createElement('td'); sess.innerText = r.session || '';
-                    const app = document.createElement('td'); app.innerText = r.win_app || '';
-                    const title = document.createElement('td'); title.innerText = r.win_title || '';
+          // Local path cell
+          const localCell = document.createElement('td');
+          const localVal = r.local_path || '';
+          localCell.innerText = shortPath(localVal);
+          localCell.title = localVal;
 
-                    // Local path cell
-                    const localCell = document.createElement('td');
-                    const localVal = r.local_path || '';
-                    localCell.innerText = shortPath(localVal);
-                    localCell.title = localVal;
+          // Actions
+          const act = document.createElement('td');
+          const openBtn = document.createElement('button');
+          openBtn.innerText = 'Open';
+          openBtn.className = 'ghost';
+          openBtn.onclick = () => {
+            const p = resolveClientPath(r);
+            if (p)
+              window.open(
+                API_OPEN + '?path=' + encodeURIComponent(p),
+                '_blank',
+              );
+            else alert('No file available to open.');
+          };
+          const dlBtn = document.createElement('button');
+          dlBtn.innerText = 'Download';
+          dlBtn.className = 'modal-btn';
+          dlBtn.onclick = () => {
+            const p = resolveClientPath(r);
+            if (p)
+              window.open(
+                API_OPEN + '?path=' + encodeURIComponent(p),
+                '_blank',
+              );
+            else alert('No file available to download.');
+          };
+          act.appendChild(openBtn);
+          act.appendChild(dlBtn);
 
-                    // Actions
-                    const act = document.createElement('td');
-                    const openBtn = document.createElement('button'); openBtn.innerText = 'Open'; openBtn.className = 'ghost';
-                    openBtn.onclick = () => {
-                        const p = resolveClientPath(r);
-                        if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
-                        else alert('No file available to open.');
-                    };
-                    const dlBtn = document.createElement('button'); dlBtn.innerText = 'Download'; dlBtn.className = 'modal-btn';
-                    dlBtn.onclick = () => {
-                        const p = resolveClientPath(r);
-                        if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
-                        else alert('No file available to download.');
-                    };
-                    act.appendChild(openBtn);
-                    act.appendChild(dlBtn);
+          tr.appendChild(thumbTd);
+          tr.appendChild(ts);
+          tr.appendChild(sess);
+          tr.appendChild(app);
+          tr.appendChild(title);
+          tr.appendChild(localCell);
+          tr.appendChild(act);
+          tbody.appendChild(tr);
+        });
+      }
 
-                    tr.appendChild(thumbTd);
-                    tr.appendChild(ts);
-                    tr.appendChild(sess);
-                    tr.appendChild(app);
-                    tr.appendChild(title);
-                    tr.appendChild(localCell);
-                    tr.appendChild(act);
-                    tbody.appendChild(tr);
-                });
+      // ---------- TIMELINE UI + LOGIC ----------
+      async function loadTimeline() {
+        const params = new URLSearchParams();
+        const title = qs('win_title').value.trim();
+        const app = qs('win_app').value.trim();
+        if (title) params.set('win_title', title);
+        if (app) params.set('win_app', app);
+        let start = qs('start').value;
+        let end = qs('end').value;
 
-            }
+        if (!start && !end) {
+          const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+          start = dr.start;
+          end = dr.end;
+          qs('start').value = start;
+          qs('end').value = end;
+        }
 
-            // ---------- TIMELINE UI + LOGIC ----------
-            async function loadTimeline() {
-                const params = new URLSearchParams();
-                const title = qs('win_title').value.trim();
-                const app = qs('win_app').value.trim();
-                if (title) params.set('win_title', title);
-                if (app) params.set('win_app', app);
-                let start = qs('start').value;
-                let end = qs('end').value;
+        if (start) params.set('start', start);
+        if (end) params.set('end', end);
 
-                if (!start && !end) {
-                    const dr = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
-                    start = dr.start;
-                    end = dr.end;
-                    qs('start').value = start;
-                    qs('end').value = end;
-                }
+        try {
+          const res = await fetch(API_TIMELINE + '?' + params.toString());
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          timelineData = data.items || [];
 
-                if (start) params.set('start', start);
-                if (end) params.set('end', end);
+          if (timelineData.length === 0) {
+            qs('timelineCard').style.display = 'none';
+            return;
+          }
 
-                try {
-                    const res = await fetch(API_TIMELINE + '?' + params.toString());
-                    if (!res.ok) throw new Error(await res.text());
-                    const data = await res.json();
-                    timelineData = data.items || [];
+          qs('timelineCard').style.display = 'grid';
 
-                    if (timelineData.length === 0) {
-                        qs('timelineCard').style.display = 'none';
-                        return;
-                    }
+          // slider uses epoch ms range
+          const minMs = timelineData[0].ts_ms;
+          const maxMs = timelineData[timelineData.length - 1].ts_ms;
+          const slider = qs('timeline');
+          slider.min = String(minMs);
+          slider.max = String(maxMs);
+          slider.step = '1000'; // 1s resolution
+          slider.value = String(minMs);
 
-                    qs('timelineCard').style.display = 'grid';
+          qs('timelineStats').innerText =
+            `Points: ${timelineData.length} | Range: ${fmtLocal(timelineData[0].timestamp)} → ${fmtLocal(timelineData[timelineData.length - 1].timestamp)}`;
 
-                    // slider uses epoch ms range
-                    const minMs = timelineData[0].ts_ms;
-                    const maxMs = timelineData[timelineData.length - 1].ts_ms;
-                    const slider = qs('timeline');
-                    slider.min = String(minMs);
-                    slider.max = String(maxMs);
-                    slider.step = '1000'; // 1s resolution
-                    slider.value = String(minMs);
+          updatePreviewByEpoch(minMs);
+        } catch (err) {
+          console.error('Timeline load failed', err);
+        }
+      }
 
-                    qs('timelineStats').innerText = `Points: ${timelineData.length} | Range: ${fmtLocal(timelineData[0].timestamp)} → ${fmtLocal(timelineData[timelineData.length - 1].timestamp)}`;
+      // binary search for latest index with ts_ms <= t
+      function latestIndexBefore(t) {
+        let lo = 0,
+          hi = timelineData.length - 1,
+          ans = -1;
+        t = Number(t);
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (timelineData[mid].ts_ms <= t) {
+            ans = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        return ans;
+      }
 
-                    updatePreviewByEpoch(minMs);
+      function updatePreviewByEpoch(epochMs) {
+        if (!timelineData || timelineData.length === 0) return;
+        const idx = latestIndexBefore(Number(epochMs));
+        if (idx === -1) {
+          qs('previewMeta').innerText =
+            'No image available before selected time';
+          qs('previewImg').src = '';
+          qs('openFull').onclick = () => {};
+          qs('downloadLink').href = '#';
+          return;
+        }
+        const rec = timelineData[idx];
+        qs('previewMeta').innerText =
+          `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
+        const p = resolveClientPath(rec);
+        qs('previewImg').src = API_THUMB + '?path=' + encodeURIComponent(p);
+        qs('previewImg').onclick = () => openModalFromList(timelineData, idx);
+        qs('openFull').onclick = () => {
+          if (p)
+            window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
+        };
+        qs('downloadLink').href = API_OPEN + '?path=' + encodeURIComponent(p);
+        qs('timelineLabel').innerText = fmtLocal(
+          new Date(Number(epochMs)),
+        ).replace(',', '');
+      }
 
-                } catch (err) {
-                    console.error('Timeline load failed', err);
-                }
-            }
+      qs('timeline').addEventListener('input', (e) => {
+        updatePreviewByEpoch(e.target.value);
+      });
 
-            // binary search for latest index with ts_ms <= t
-            function latestIndexBefore(t) {
-                let lo = 0, hi = timelineData.length - 1, ans = -1;
-                t = Number(t);
-                while (lo <= hi) {
-                    const mid = Math.floor((lo + hi) / 2);
-                    if (timelineData[mid].ts_ms <= t) { ans = mid; lo = mid + 1; }
-                    else { hi = mid - 1; }
-                }
-                return ans;
-            }
+      // play/pause
+      qs('playBtn').addEventListener('click', () => {
+        if (playInterval) clearInterval(playInterval);
+        const speed = Number(qs('speedSel').value) || 1;
+        playInterval = setInterval(() => {
+          const s = qs('timeline');
+          const step = 1000 * speed; // advance seconds * speed
+          let next = Number(s.value) + step;
+          if (next > Number(s.max)) {
+            next = Number(s.max);
+            clearInterval(playInterval);
+            playInterval = null;
+          }
+          s.value = String(next);
+          updatePreviewByEpoch(next);
+        }, 200);
+      });
+      qs('pauseBtn').addEventListener('click', () => {
+        if (playInterval) clearInterval(playInterval);
+        playInterval = null;
+      });
 
-            function updatePreviewByEpoch(epochMs) {
-                if (!timelineData || timelineData.length === 0) return;
-                const idx = latestIndexBefore(Number(epochMs));
-                if (idx === -1) {
-                    qs('previewMeta').innerText = 'No image available before selected time';
-                    qs('previewImg').src = '';
-                    qs('openFull').onclick = () => { };
-                    qs('downloadLink').href = '#';
-                    return;
-                }
-                const rec = timelineData[idx];
-                qs('previewMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
-                const p = resolveClientPath(rec);
-                qs('previewImg').src = API_THUMB + '?path=' + encodeURIComponent(p);
-                qs('previewImg').onclick = () => openModalFromList(timelineData, idx);
-                qs('openFull').onclick = () => { if (p) window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank'); };
-                qs('downloadLink').href = API_OPEN + '?path=' + encodeURIComponent(p);
-                qs('timelineLabel').innerText = fmtLocal(new Date(Number(epochMs))).replace(',', '');
-            }
+      // ---------- Modal viewer ----------
+      function openModalFromList(list, index) {
+        if (!list || list.length === 0) return;
+        viewerList = list;
+        viewerIndex = index;
+        showModalRecord(viewerList[viewerIndex]);
+        qs('imageModal').classList.add('open');
+        qs('imageModal').setAttribute('aria-hidden', 'false');
+      }
 
-            qs('timeline').addEventListener('input', (e) => {
-                updatePreviewByEpoch(e.target.value);
-            });
+      function showModalRecord(rec) {
+        const p = resolveClientPath(rec);
+        qs('modalImg').src = API_OPEN + '?path=' + encodeURIComponent(p);
+        qs('modalMeta').innerText =
+          `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
+        qs('modalDownload').href = API_OPEN + '?path=' + encodeURIComponent(p);
+        qs('modalOpenNew').onclick = () =>
+          window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
+      }
 
-            // play/pause
-            qs('playBtn').addEventListener('click', () => {
-                if (playInterval) clearInterval(playInterval);
-                const speed = Number(qs('speedSel').value) || 1;
-                playInterval = setInterval(() => {
-                    const s = qs('timeline');
-                    const step = 1000 * speed; // advance seconds * speed
-                    let next = Number(s.value) + step;
-                    if (next > Number(s.max)) { next = Number(s.max); clearInterval(playInterval); playInterval = null; }
-                    s.value = String(next);
-                    updatePreviewByEpoch(next);
-                }, 200);
-            });
-            qs('pauseBtn').addEventListener('click', () => { if (playInterval) clearInterval(playInterval); playInterval = null; });
+      function closeModal() {
+        qs('imageModal').classList.remove('open');
+        qs('imageModal').setAttribute('aria-hidden', 'true');
+        viewerList = [];
+        viewerIndex = 0;
+      }
 
-            // ---------- Modal viewer ----------
-            function openModalFromList(list, index) {
-                if (!list || list.length === 0) return;
-                viewerList = list;
-                viewerIndex = index;
-                showModalRecord(viewerList[viewerIndex]);
-                qs('imageModal').classList.add('open'); qs('imageModal').setAttribute('aria-hidden', 'false');
-            }
+      function showPrev() {
+        if (!viewerList || viewerList.length === 0) return;
+        if (viewerIndex > 0) {
+          viewerIndex--;
+          showModalRecord(viewerList[viewerIndex]);
+        }
+      }
+      function showNext() {
+        if (!viewerList || viewerList.length === 0) return;
+        if (viewerIndex < viewerList.length - 1) {
+          viewerIndex++;
+          showModalRecord(viewerList[viewerIndex]);
+        }
+      }
 
-            function showModalRecord(rec) {
-                const p = resolveClientPath(rec);
-                qs('modalImg').src = API_OPEN + '?path=' + encodeURIComponent(p);
-                qs('modalMeta').innerText = `${fmtLocal(rec.timestamp)} — ${rec.win_app || ''} — ${rec.win_title || ''}`;
-                qs('modalDownload').href = API_OPEN + '?path=' + encodeURIComponent(p);
-                qs('modalOpenNew').onclick = () => window.open(API_OPEN + '?path=' + encodeURIComponent(p), '_blank');
-            }
+      qs('modalClose').addEventListener('click', closeModal);
+      qs('modalPrev').addEventListener('click', showPrev);
+      qs('modalNext').addEventListener('click', showNext);
+      // keyboard navigation
+      window.addEventListener('keydown', (e) => {
+        if (!qs('imageModal').classList.contains('open')) return;
+        if (e.key === 'Escape') {
+          closeModal();
+        } else if (e.key === 'ArrowLeft') {
+          showPrev();
+        } else if (e.key === 'ArrowRight') {
+          showNext();
+        }
+      });
 
-            function closeModal() { qs('imageModal').classList.remove('open'); qs('imageModal').setAttribute('aria-hidden', 'true'); viewerList = []; viewerIndex = 0; }
+      // close modal when clicking outside content
+      qs('imageModal').addEventListener('click', (ev) => {
+        if (ev.target.id === 'imageModal') closeModal();
+      });
 
-            function showPrev() {
-                if (!viewerList || viewerList.length === 0) return;
-                if (viewerIndex > 0) { viewerIndex--; showModalRecord(viewerList[viewerIndex]); }
-            }
-            function showNext() {
-                if (!viewerList || viewerList.length === 0) return;
-                if (viewerIndex < viewerList.length - 1) { viewerIndex++; showModalRecord(viewerList[viewerIndex]); }
-            }
+      // ---------- EXPORT ----------
+      qs('exportBtn').addEventListener('click', async () => {
+        const params = new URLSearchParams();
+        const title = qs('win_title').value.trim();
+        const app = qs('win_app').value.trim();
+        if (title) params.set('win_title', title);
+        if (app) params.set('win_app', app);
+        if (qs('start').value) params.set('start', qs('start').value);
+        if (qs('end').value) params.set('end', qs('end').value);
+        const res = await fetch('/api/export?' + params.toString());
+        if (!res.ok) {
+          alert('Export failed');
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'recall-export.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
 
-            qs('modalClose').addEventListener('click', closeModal);
-            qs('modalPrev').addEventListener('click', showPrev);
-            qs('modalNext').addEventListener('click', showNext);
-            // keyboard navigation
-            window.addEventListener('keydown', (e) => {
-                if (!qs('imageModal').classList.contains('open')) return;
-                if (e.key === 'Escape') { closeModal(); }
-                else if (e.key === 'ArrowLeft') { showPrev(); }
-                else if (e.key === 'ArrowRight') { showNext(); }
-            });
+      // pagination & search bindings
+      qs('searchBtn').addEventListener('click', () => doSearch(true));
+      qs('win_title').addEventListener('change', () => doSearch(true));
+      qs('win_app').addEventListener('change', () => doSearch(true));
+      qs('start').addEventListener('change', () => doSearch(true));
+      qs('end').addEventListener('change', () => doSearch(true));
+      qs('clearBtn').addEventListener('click', () => {
+        qs('win_title').value = '';
+        qs('win_app').value = '';
+        qs('start').value = '';
+        qs('end').value = '';
+        doSearch(true);
+      });
+      qs('prevPage').addEventListener('click', () => {
+        if (page > 1) {
+          page--;
+          doSearch(false);
+        }
+      });
+      qs('nextPage').addEventListener('click', () => {
+        if (page * pageSize < total) {
+          page++;
+          doSearch(false);
+        }
+      });
 
-            // close modal when clicking outside content
-            qs('imageModal').addEventListener('click', (ev) => {
-                if (ev.target.id === 'imageModal') closeModal();
-            });
+      // initialize: fetch server config, set placeholders and then run initial search
+      (async function init() {
+        await fetchServerConfig();
 
-            // ---------- EXPORT ----------
-            qs('exportBtn').addEventListener('click', async () => {
-                const params = new URLSearchParams();
-                const title = qs('win_title').value.trim();
-                const app = qs('win_app').value.trim();
-                if (title) params.set('win_title', title);
-                if (app) params.set('win_app', app);
-                if (qs('start').value) params.set('start', qs('start').value);
-                if (qs('end').value) params.set('end', qs('end').value);
-                const res = await fetch('/api/export?' + params.toString());
-                if (!res.ok) { alert('Export failed'); return; }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'recall-export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-            });
+        // show placeholders with the computed default range (nice UX)
+        try {
+          const dr0 = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
+          qs('start').placeholder = dr0.start;
+          qs('end').placeholder = dr0.end;
+          qs('start').value = dr0.start;
+          qs('end').value = dr0.end;
+        } catch (e) {
+          console.warn('Could not set default placeholders', e);
+        }
 
-            // pagination & search bindings
-            qs('searchBtn').addEventListener('click', () => doSearch(true));
-            qs('win_title').addEventListener('change', () => doSearch(true));
-            qs('win_app').addEventListener('change', () => doSearch(true));
-            qs('start').addEventListener('change', () => doSearch(true));
-            qs('end').addEventListener('change', () => doSearch(true));
-            qs('clearBtn').addEventListener('click', () => { qs('win_title').value = ''; qs('win_app').value = ''; qs('start').value = ''; qs('end').value = ''; doSearch(true); });
-            qs('prevPage').addEventListener('click', () => { if (page > 1) { page--; doSearch(false) } });
-            qs('nextPage').addEventListener('click', () => { if (page * pageSize < total) { page++; doSearch(false) } });
-
-            // initialize: fetch server config, set placeholders and then run initial search
-            (async function init() {
-                await fetchServerConfig();
-
-                // show placeholders with the computed default range (nice UX)
-                try {
-                    const dr0 = defaultDateRange(DEFAULT_LOCAL_RETENTION_DAYS);
-                    qs('start').placeholder = dr0.start;
-                    qs('end').placeholder = dr0.end;
-                    qs('start').value = dr0.start;
-                    qs('end').value = dr0.end;
-                } catch (e) {
-                    console.warn('Could not set default placeholders', e);
-                }
-
-                // now perform initial search restricted to local retention window
-                doSearch(true);
-            })();
-        </script>
-    </body>
-
+        // now perform initial search restricted to local retention window
+        doSearch(true);
+      })();
+    </script>
+  </body>
 </html>

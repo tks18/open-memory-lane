@@ -273,8 +273,6 @@ def archive_old_records(retention_days: int = LOCAL_RETENTION_DAYS):
     Move rows older than retention_days from local DB -> archive DB (OneDrive).
     Uses INSERT OR IGNORE + delete-where-exists to ensure only incremental new rows
     are removed from the live DB. Idempotent.
-
-    Fixed: avoid parentheses around SELECT column-list (which caused "row value misused").
     """
     try:
         cutoff_ts_ms = int((datetime.datetime.now(

@@ -1,3 +1,50 @@
+"""
+==========================
+Worker Management Module
+==========================
+
+This module provides a set of worker threads for different tasks, including CaptureWorker, DBWriter, BackupWorker, and VideoWriter.
+It also includes a function for gracefully shutting down all the workers.
+
+Features:
+- Implements a `CaptureWorker` class that extends `threading.Thread`.
+- Collects jobs in a queue.
+- Processes jobs one by one in the background.
+- Provides methods to enqueue jobs and stop the worker gracefully.
+
+- Implements a `DBWriter` class that extends `threading.Thread`.
+- Collects SQL commands and parameters in a queue.
+- Executes the queued commands in batches with a configurable batch size and flush interval.
+- Provides methods to enqueue SQL commands and stop the worker gracefully.
+
+- Implements a `BackupWorker` class that extends `threading.Thread`.
+- Periodically moves completed items from TEMP → Backup Location
+- Syncs DB to Archive
+- Archives old records
+- Prunes local DB for only Retention Days
+- Cleans up stale lock files
+
+- Implements a `VideoWriter` class that extends `threading.Thread`.
+- Collects video jobs in a queue (make or concat).
+- Processes jobs one by one in the background.
+- Provides methods to enqueue jobs and stop the worker gracefully.
+
+
+Usage:
+>>> capture_worker = CaptureWorker(stop_event, thread_name="CaptureWorker", db_writer, video_writer)
+>>> capture_worker.start()  # Start the background worker thread
+>>> db_writer = DBWriter(thread_name="DBWriterThread", db_path=DB_PATH)
+>>> db_writer.start()  # Start the background writer thread
+>>> backup_thread = BackupWorker(thread_name="BackupThread", interval_seconds=3 * 60 * 60)
+>>> backup_thread.start()  # Start the backup worker thread
+>>> video_thread = VideoWriter(thread_name="VideoWriterThread", db_writer=db_writer, flush_interval=1 * 60)
+>>> video_thread.start()  # Start the video writer worker thread
+>>> graceful_workers_shutdown(icon, item, stop_event, workers, writer_workers)
+
+*Author: Sudharshan TK*\n
+*Created: 2025-08-31*
+"""
+
 import os
 import sys
 import threading

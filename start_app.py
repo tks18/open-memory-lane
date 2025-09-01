@@ -15,6 +15,13 @@ app_path = os.path.join(base_dir, "main.py")
 
 
 def run_hidden(script_path, log_path):
+    """
+    Run a script in the background without opening a console window.
+
+    Args:
+        script_path (str): Path to the script to run.
+        log_path (str): Path to the log file to capture output.
+    """
     creationflags = subprocess.CREATE_NO_WINDOW
     subprocess.Popen([venv_python, script_path],
                      stdout=open(log_path, "w"),

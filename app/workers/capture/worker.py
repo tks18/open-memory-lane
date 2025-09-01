@@ -29,7 +29,21 @@ IDLE_THRESHOLD = cfg.IDLE_THRESHOLD
 
 
 class CaptureWorker(threading.Thread):
+    """
+    Background worker for capturing screenshots and creating videos.
+    This class extends `threading.Thread` and uses a queue to collect jobs.
+    uses db_writer and video_writer to write to the database and create videos.
+    Configure the `CAPTURE_INTERVAL` and `IDLE_THRESHOLD` settings in `.config.yml` to adjust the frequency and threshold for capturing screenshots.
+    """
+
     def __init__(self, stop_event: threading.Event, thread_name: str, db_writer: DBWriter, video_writer: VideoWriter):
+        """
+        Args:
+            stop_event (threading.Event): stop event to signal the thread to stop
+            thread_name (str): name of the thread
+            db_writer (DBWriter): Db Writer Worker
+            video_writer (VideoWriter): Video Writer Worker
+        """
         super().__init__(name=thread_name, daemon=True)
         self.thread_name = thread_name
         self.stop_event = stop_event
@@ -37,6 +51,10 @@ class CaptureWorker(threading.Thread):
         self.video_writer = video_writer
 
     def run(self):
+        """
+        Main worker loop — captures screenshots and creates videos.
+        Runs until `stop_event` is set, then flushes remaining jobs.
+        """
         init_db()
         cleanup_stale_locks(IMAGES_DIR)
         self.process_backlog()
@@ -108,6 +126,14 @@ class CaptureWorker(threading.Thread):
         logger.info("Worker stopped")
 
     def process_backlog(self, current_session=None):
+        """
+        Process backlog of Detailed & Summary videos.
+        This method is called periodically to check for new videos to process.
+        It checks the DB for pending videos and processes them one by one.
+
+        Args:
+            current_session (tuple, optional): Current session tuple (day, session_label). Defaults to None.
+        """
         logger.info("Processing Backlogs")
         for day, session in get_pending_video_sessions():
             if current_session and (day, session) == current_session:
