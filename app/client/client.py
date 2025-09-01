@@ -223,6 +223,9 @@ def api_open():
 
 @APP.route('/api/export')
 def api_export():
+    """
+    Route to export image records as CSV
+    """
     win_title = request.args.get('win_title', type=str)
     win_app = request.args.get('win_app', type=str)
     start = request.args.get('start', type=str)
@@ -265,6 +268,9 @@ def api_export():
 
 
 def run_flask_app():
+    """
+    Run the Flask app
+    """
     # Redirect Flask's internal logger to your logger
     client_logger = configure_client_logger()
     APP.logger.handlers = client_logger.handlers

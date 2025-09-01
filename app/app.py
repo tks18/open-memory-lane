@@ -43,6 +43,11 @@ def open_browser(icon, item):
 
 
 def run_tray_app():
+    """
+    Main function to run the tray application.
+    Initializes and starts all worker threads, sets up signal handlers for graceful shutdown,
+    and starts the tray icon.
+    """
     global worker, backup_thread
 
     ensure_dirs()
@@ -97,6 +102,11 @@ def run_tray_app():
 
 
 def start_app():
+    """
+    Entry point to start the tray application.
+    Checks for ffmpeg availability and starts the tray app.
+    Handles exceptions and logs fatal errors.
+    """
     if not ffmpeg_exists():
         logger.warning(
             "ffmpeg not found in PATH. Videos will be queued until ffmpeg is available.")
