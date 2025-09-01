@@ -181,7 +181,8 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
             path = os.path.join(save_dir, fname)
 
             # Prepare timestamp
-            timestamp = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = now_dt.strftime(
+                f"{app_name} | {window_title} | %Y-%m-%d %H:%M:%S")
 
             # Create a small overlay to draw text with alpha and composite it.
             # Using full-size overlay is simple and memory-light for typical screens.
@@ -190,9 +191,9 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
 
             # Load font (fallback to default if truetype not available)
             try:
-                font = ImageFont.truetype("arial.ttf", 14)
+                font = ImageFont.truetype("arial.ttf", 15)
             except Exception:
-                font = ImageFont.load_default()
+                font = ImageFont.load_default(15)
 
             # Measure text size robustly:
             try:
@@ -208,10 +209,10 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
                     # Super-defensive fallback
                     text_width, text_height = (len(timestamp) * 7, 14)
 
-            # Position: top-right with margin
+            # Position: Bottom-center with margin
             margin = 8
-            x = pil_img.width - text_width - margin
-            y = margin
+            x = (pil_img.width - text_width) // 2  # Center horizontally
+            y = pil_img.height - text_height - margin  # Bottom with margin
 
             # Draw semi-transparent rounded-ish rectangle behind text (slightly larger than text)
             rect_padding = 10
@@ -220,7 +221,7 @@ def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], sav
             rect_x1 = x + text_width + rect_padding
             rect_y1 = y + text_height + rect_padding
 
-            # Semi-transparent black background (alpha 120/255)
+            # Semi-transparent black background
             draw.rectangle(
                 [(rect_x0, rect_y0), (rect_x1, rect_y1)], fill=(0, 0, 0, 255))
 
