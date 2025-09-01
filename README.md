@@ -17,6 +17,36 @@
 
 ---
 
+## 🖥️ Client-side features
+
+- 📜 **Scrollable Timeline View**
+  - Navigate through your day visually with a smooth, zoomable timeline.
+  - Jump to exact sessions (15-min detailed clips or daily summaries).
+  - Filter by **app name**, **window title**, or **time range**.
+
+- 🔎 **Query the Database**
+  - Built-in query console to search the SQLite metadata:
+    - Example: _“Show all Chrome windows between 2–4 PM”_
+    - Example: _“List apps I used more than 30 mins today”_
+  - Fast results with indexed lookups.
+
+- 📤 **Export Data as CSV**
+  - Export metadata (timestamp, app name, window title, etc.) into a clean CSV.
+  - Perfect for analytics in Excel / Power BI / Python notebooks.
+  - Optional: include file paths to screenshots for external use.
+
+---
+
+## 🧩 End-to-end workflow
+
+1. **Capture**: lightweight background screenshots + metadata storage.
+2. **Process**: timelapse clips auto-generated daily.
+3. **Explore**: open the timeline view, scroll through your day.
+4. **Query**: filter/search by apps, titles, or times.
+5. **Export**: save your activity log to CSV for analysis or sharing.
+
+---
+
 ## ⚙️ Quick start
 
 1. 🐣 Create venv & install:
