@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.3.0](https://github.com/tks18/open-memory-lane/compare/v2.2.0...v2.3.0) (2025-09-01)
+
+
+### Bug Fixes 🛠
+
+* **helpers/client:** fix the downsample function to return exact linspaced items ([6990c0c](https://github.com/tks18/open-memory-lane/commit/6990c0ccee4cf5da68df0ea54500760da5c625b5))
+
+
+### Features 🔥
+
+* **helpers/copy:** use a new manifest way of checking the backup location and skip copying ([7331041](https://github.com/tks18/open-memory-lane/commit/733104171a9f204ed0c3137711631a38d2b65c05))
+* **helpers/screenshot:** add window_title & app_name to the overlay, also change the position ([12e3d16](https://github.com/tks18/open-memory-lane/commit/12e3d1669609948beffb4f5db6c47eed9a0caa50))
+
+
+### Code Refactoring 🖌
+
+* refactor of code (prettier) ([eac732f](https://github.com/tks18/open-memory-lane/commit/eac732f67dbe04c2965f826a677eb503c6dccbed))
+
+
+### Docs 📃
+
+* add all docstrings for all the remaining functions, classes ([7bea3e8](https://github.com/tks18/open-memory-lane/commit/7bea3e888dfca958c7635a4292e40374e9a1c6a8))
+* add documentations to most of the functions, modules, workers ([b98cc5c](https://github.com/tks18/open-memory-lane/commit/b98cc5c60f65ba32a50df14a0b796fe795790af7))
+* fix docs ([8feb34c](https://github.com/tks18/open-memory-lane/commit/8feb34c71a6f360ecd297d5e0efbf4afe16d4318))
+* **readme:** update readme file for client related details ([83f0088](https://github.com/tks18/open-memory-lane/commit/83f00881305bd7e699d2b397e013fa179c861e11))
+* update readme ([6108a06](https://github.com/tks18/open-memory-lane/commit/6108a06d684068467bf2f227ab7def43b3e7890e))
+
 ## [2.2.0](https://github.com/tks18/open-memory-lane/compare/v2.1.1...v2.2.0) (2025-08-27)
 
 
