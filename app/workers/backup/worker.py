@@ -153,6 +153,7 @@ class BackupWorker(threading.Thread):
                             continue
 
                         if month == current_month:
+                            cutoff_day = datetime.date.today() - datetime.timedelta(days=2)
                             # ✅ copy only non-today summaries
                             manifest = load_hash_manifest(dst_month_dir)
                             updated = False
@@ -161,7 +162,12 @@ class BackupWorker(threading.Thread):
                                 if not f.endswith("_summary.mp4"):
                                     continue
                                 day_prefix = f.split("_summary.mp4")[0]
-                                if day_prefix < today:
+                                try:
+                                    file_date = datetime.date.fromisoformat(
+                                        day_prefix)
+                                except ValueError:
+                                    continue  # skip weird filenames
+                                if file_date <= cutoff_day:
                                     src_f = os.path.join(src_month_dir, f)
                                     dst_f = os.path.join(dst_month_dir, f)
                                     ok, manifest = safe_copy_file(
