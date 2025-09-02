@@ -1,6 +1,6 @@
 """
 ==========================
-Helpers - Windows Idle Detection
+Helpers - Windows Specific
 ==========================
 
 This module provides helpers for Windows-specific functionality related to idle time detection.

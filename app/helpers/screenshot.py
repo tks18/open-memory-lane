@@ -118,11 +118,16 @@ def changed_area_fraction(cv_img1_bgr: Optional[np.ndarray], cv_img2_bgr: Option
 
 def capture_screenshot(db_writer: DBWriter, last_img: Optional[Image.Image], save_dir: str, day: str, session: str) -> Optional[Image.Image]:
     """
-    Function to capture a screenshot. It uses the mss library to capture the screen and converts it to a PIL image.
-    It then computes the difference hash and hamming distance between the current frame and the last frame.
-    If the hamming distance is greater than a threshold, it computes the changed area fraction between the current frame and the last frame.
-    If the changed area fraction is greater than a threshold, it saves the current frame as an image and updates the last frame.
-    Finally, it returns the current frame.
+    Function to capture a screenshot.
+
+    Implementation:
+    1. Capture the screen using mss library.
+    2. Get the active window title and application name.
+    3. Convert the captured image to a PIL Image.
+    4. Determine if the screenshot should be saved based on changes detected using Dhash and Hamming distance.
+    5. If it should be saved, save the image as a WEBP file with a timestamp overlay.
+    6. Write the image details to the database using db_writer.
+    7. Update internal state variables for future comparisons.
 
     Args:
         db_writer (DBWriter): DB Writer Worker

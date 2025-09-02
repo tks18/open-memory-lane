@@ -18,6 +18,9 @@ CORS(APP)
 
 @APP.route('/')
 def index():
+    """
+    Serve the main HTML page.
+    """
     return send_from_directory("templates", "index.html")
 
 
@@ -38,6 +41,17 @@ def api_config():
 
 @APP.route('/api/search')
 def api_search():
+    """
+    Search image records by window title, application name, and time range with pagination.
+
+    Parameters:
+        win_title (str): Window title to search for.
+        win_app (str): Application name to search for.
+        start (str): Start date in ISO format (YYYY-MM-DD).
+        end (str): End date in ISO format (YYYY-MM-DD).
+        page (int): Page number (default: 1).
+        page_size (int): Number of items per page (default: 20).
+    """
     win_title = request.args.get('win_title', type=str)
     win_app = request.args.get('win_app', type=str)
     start = request.args.get('start', type=str)
@@ -105,6 +119,15 @@ def api_search():
 
 @APP.route('/api/timeline')
 def api_timeline():
+    """
+    Get timeline of image records with optional filtering by window title, application name, and time range.
+
+    Parameters:
+        win_title (str): Window title to filter by.
+        win_app (str): Application name to filter by.
+        start (str): Start date in ISO format (YYYY-MM-DD).
+        end (str): End date in ISO format (YYYY-MM-DD).
+    """
     win_title = request.args.get('win_title', type=str)
     win_app = request.args.get('win_app', type=str)
     start = request.args.get('start', type=str)
@@ -141,6 +164,12 @@ def api_timeline():
 
 @APP.route('/api/image_at')
 def api_image_at():
+    """
+    Get the image record closest to a specified timestamp.
+
+    Parameters:
+        ts (str): Timestamp in ISO or epoch ms format.
+    """
     # returns single image record latest <= provided ts (ts as ISO or epoch ms)
     ts_in = request.args.get('ts', type=str)
     if not ts_in:
@@ -179,18 +208,28 @@ def api_image_at():
 
 @APP.route('/api/thumbnail')
 def api_thumbnail():
+    """
+    Route to serve thumbnail images based on a provided path.
+
+    Implementation:
+    1. If path looks like a DB-stored value (may be relative or absolute),
+    2. attempt to resolve via candidates and retention policy.
+    3. If a direct match exists on filesystem, serve that.
+    4. Otherwise try to map to backup location.
+    5. We attempt to read a DB record if the path is actually a DB 'path' value (id could be passed),
+    6. but most callers pass the stored path string — so we best-effort resolve it.
+    7. Try quick-resolve by creating a pseudo-record with the path in local_path.
+    8. If that fails, fallback to candidates_from_path_string (safe_image_path-like logic).
+    9. If we find a valid file, serve it; otherwise return 404.
+
+    Parameters:
+        path (str): The path to the image file.
+    """
     path = request.args.get('path', type=str)
     if not path:
         abort(400)
     path = urllib.parse.unquote_plus(path)
 
-    # If path looks like a DB-stored value (may be relative or absolute),
-    # attempt to resolve via candidates and retention policy.
-    # If a direct match exists on filesystem, serve that.
-    # Otherwise try to map to backup location.
-    # We attempt to read a DB record if the path is actually a DB 'path' value (id could be passed),
-    # but most callers pass the stored path string — so we best-effort resolve it.
-    # Try quick-resolve by creating a pseudo-record with the path in local_path.
     rec = {'local_path': path, 'backup_path': ''}
     resolved = resolve_serving_path(rec)
     if not resolved:
@@ -205,6 +244,23 @@ def api_thumbnail():
 
 @APP.route('/api/open')
 def api_open():
+    """
+    Route to serve images for direct viewing in browser.
+
+    Implementation:
+    1. If path looks like a DB-stored value (may be relative or absolute),
+    2. attempt to resolve via candidates and retention policy.
+    3. If a direct match exists on filesystem, serve that.
+    4. Otherwise try to map to backup location.
+    5. We attempt to read a DB record if the path is actually a DB 'path' value (id could be passed),
+    6. but most callers pass the stored path string — so we best-effort resolve it.
+    7. Try quick-resolve by creating a pseudo-record with the path in local_path.
+    8. If that fails, fallback to candidates_from_path_string (safe_image_path-like logic).
+    9. If we find a valid file, serve it; otherwise return 404.
+
+    Parameters:
+        path (str): The path to the image file.
+    """
     path = request.args.get('path', type=str)
     if not path:
         abort(400)
@@ -224,7 +280,13 @@ def api_open():
 @APP.route('/api/export')
 def api_export():
     """
-    Route to export image records as CSV
+    Export image records as CSV based on optional filtering by window title, application name, and time range.
+
+    Parameters:
+        win_title (str): Window title to filter by.
+        win_app (str): Application name to filter by.
+        start (str): Start time in ISO format.
+        end (str): End time in ISO format.
     """
     win_title = request.args.get('win_title', type=str)
     win_app = request.args.get('win_app', type=str)
@@ -269,7 +331,8 @@ def api_export():
 
 def run_flask_app():
     """
-    Run the Flask app
+    Function to run the Flask web application.
+    Configures logging to integrate with the application's logger and starts the server on the specified port.
     """
     # Redirect Flask's internal logger to your logger
     client_logger = configure_client_logger()
