@@ -55,7 +55,13 @@ def ffmpeg_exists() -> bool:
 
 def _run_and_log(cmd):
     """
-    Run subprocess and capture stderr on failure for better logs.
+    Run a subprocess command and log errors if it fails.
+
+    Args:
+        cmd (list): Command and arguments to run.
+
+    Returns:
+        bool: True if command succeeded, False otherwise.
     """
     try:
         subprocess.run(cmd, stdout=subprocess.DEVNULL,
@@ -76,8 +82,25 @@ def _run_and_log(cmd):
 
 def make_video_from_folder(folder: str, out_file: str, images_per_second: int = SESSION_VIDEO_FPS) -> bool:
     """
-    Create a video from .webp images in `folder` using a temporary sequential hardlink
-    directory so ffmpeg can read a %06d.webp sequence (works on Windows & Unix).
+    Create a video from a folder of images using ffmpeg.
+
+    Implementation:
+    1. Check if ffmpeg is available.
+    2. List and sort all .webp images in the folder.
+    3. If no images, log a warning and return False.
+    4. If only one image, create a video by looping that image for the required duration.
+    5. If multiple images, create a temporary directory and populate it with sequentially named hardlinks to the images.
+       This ensures ffmpeg can read them in order.
+    6. Use ffmpeg to create the video from the sequential images.
+    7. Clean up the temporary directory.
+
+    Args:
+        folder (str): Path to the folder containing images.
+        out_file (str): Path to the output video file.
+        images_per_second (int, optional): Images per second. Defaults to SESSION_VIDEO_FPS.
+
+    Returns:
+        bool: True if video creation succeeded, False otherwise.
     """
     if not ffmpeg_exists():
         logger.error("ffmpeg not found in PATH. Skipping video creation.")
@@ -127,7 +150,7 @@ def make_video_from_folder(folder: str, out_file: str, images_per_second: int = 
             "-framerate", str(images_per_second),
             "-i", seq_pattern,
             "-c:v", "libx264",
-            "-preset", "veryfast",      # tweak for speed vs size; change if you want
+            "-preset", "veryfast",
             "-pix_fmt", "yuv420p",
             out_file
         ]
@@ -146,9 +169,23 @@ def make_video_from_folder(folder: str, out_file: str, images_per_second: int = 
 
 def concat_daily_videos(day: str, out_file: str) -> bool:
     """
-    Create a TIMELAPSE daily summary for `day` by:
-      - building a concat list (cross-platform)
-      - piping that concat demuxer into the timelapse filter directly (no tmp concat file)
+    Concatenate all detailed videos for a given day into a single summary video.
+
+    Implementation:
+    1. Check if ffmpeg is available.
+    2. List and sort all .mp4 files in the detailed day directory.
+    3. If no videos found, log a warning and return False.
+    4. Create a temporary concat list file with paths to each video.
+    5. Probe the fps of the first video using ffprobe (if available) to determine speed factor.
+    6. Use ffmpeg with the concat demuxer and a setpts filter to create a timelapse summary video.
+    7. Clean up the temporary concat list file.
+
+    Args:
+        day (str): Day in ISO format (YYYY-MM-DD).
+        out_file (str): Path to the output summary video file.
+
+    Returns:
+        bool: True if summary creation succeeded, False otherwise.
     """
     if not ffmpeg_exists():
         logger.error("ffmpeg not found in PATH. Skipping summary creation.")

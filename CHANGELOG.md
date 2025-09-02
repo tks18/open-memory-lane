@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.3.1](https://github.com/tks18/open-memory-lane/compare/v2.3.0...v2.3.1) (2025-09-02)
+
+
+### Docs 📃
+
+* **client/index.html:** update doc ([a2e754b](https://github.com/tks18/open-memory-lane/commit/a2e754bf8746ccfccfbea9e388c6a09d9053c3e3))
+* **various modules:** update docstrings, documentations for various modules ([e18c246](https://github.com/tks18/open-memory-lane/commit/e18c2461cdce8e094f61ac4c135de8a107ffe215))
+
+
+### Bug Fixes 🛠
+
+* **helpers/copy:** fix the hash manifest saving ([398bcde](https://github.com/tks18/open-memory-lane/commit/398bcdef6e49dc06ab818f840af41e58e2ff6150))
+* **workers/backup:** dont copy yesterday's summary videos ([b7dc377](https://github.com/tks18/open-memory-lane/commit/b7dc377e1f0d1794570010d7af4c9f87ba7889f9))
+
 ## [2.3.0](https://github.com/tks18/open-memory-lane/compare/v2.2.0...v2.3.0) (2025-09-01)
 
 
